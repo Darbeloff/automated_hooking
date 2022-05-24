@@ -7,7 +7,7 @@ TODO
 
 ## Parts and Manufacture
 
-(Parts List)[Parts_List.md]
+[Parts List](Parts_List.md)
 
 Manufacture is TODO
 
