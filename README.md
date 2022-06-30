@@ -1,6 +1,8 @@
 # Automated Hooking
 Code and content for autonomously hooking horizontal pegs with a gantry crane
 
+This project builds heavily on [previous research](https://github.com/Cormac0/Horizontal_Insertion)j
+
 ## Setup
 
 TODO
