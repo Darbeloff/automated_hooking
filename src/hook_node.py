@@ -8,7 +8,7 @@ import serial
 
 class HookNode:
     """
-    This node interfaces with the hook-mounted nano, recieving updates about the orientation and acceleration of the board. This node can also command the nano to open and close the retainer
+    This node interfaces with the hook-mounted arduino via the bridge class, recieving updates about the orientation and acceleration of the board. This node can also command the nano to open and close the retainer
     """
     def __init__(self):
         pass

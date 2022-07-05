@@ -5,7 +5,7 @@
 #include <utility/imumaths.h>
 
 /* Set the delay between fresh samples */
-#define BNO055_SAMPLERATE_DELAY_MS (100)
+#define LOOP_DELAY_MS 100
 #define SERIAL_DIGITS 4
 
 #define SERVOPIN 9
@@ -21,26 +21,24 @@ Servo servo;
 */
 /**************************************************************************/
 void displaySensorDetails() {
-  sensor_t sensor;
-  bno.getSensor(&sensor);
-  Serial.println("------------------------------------");
-  Serial.print  ("Sensor:       "); Serial.println(sensor.name);
-  Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
-  Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
-  Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" xxx");
-  Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" xxx");
-  Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" xxx");
-  Serial.println("------------------------------------");
-  Serial.println("");
-  delay(500);
-
-  
+    sensor_t sensor;
+    bno.getSensor(&sensor);
+    Serial.println("------------------------------------");
+    Serial.print  ("Sensor:       "); Serial.println(sensor.name);
+    Serial.print  ("Driver Ver:   "); Serial.println(sensor.version);
+    Serial.print  ("Unique ID:    "); Serial.println(sensor.sensor_id);
+    Serial.print  ("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" xxx");
+    Serial.print  ("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" xxx");
+    Serial.print  ("Resolution:   "); Serial.print(sensor.resolution); Serial.println(" xxx");
+    Serial.println("------------------------------------");
+    Serial.println("");
+    delay(500);
 }
 
 void setup() {
     // put your setup code here, to run once:
     Serial.begin(115200);
-    Serial.println("WebSerial 3D Firmware"); Serial.println("");
+    // Serial.println("WebSerial 3D Firmware"); Serial.println("");
 
     imuINIT()
     servoINIT()
@@ -49,6 +47,8 @@ void setup() {
 
 void loop() {
     receiveMessage();
+    sendIMUData();
+    delay(LOOP_DELAY_MS);
 }
 
 
@@ -85,12 +85,10 @@ void servoINIT() {
 
 void servoOpen() {
     servo.write(opendegree);
-    blink(10, 100);
 }
 
 void servoClose() {
     servo.write(closedegree);
-    blink(5, 200);
 }
 
 
@@ -101,8 +99,8 @@ void imuINIT() {
     /* Initialise the sensor */
     if(!bno.begin()) {
         /* There was a problem detecting the BNO055 ... check your connections */
-        Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
-        while(1);
+        Serial.print("Oops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+        while(1); //hang forever
     }
     
     delay(1000);
@@ -120,59 +118,76 @@ void imuINIT() {
 
 
     /* Display some basic information on this sensor */
-    displaySensorDetails();
+    // displaySensorDetails();
 }
 
+// event.orientation.x,y,z is orientation in euler angles
+// event.acceleration.x,y,z is acceleration
+// event.magnetic.x,y,z is magnetic field
+// event.gyro.x,y,z is gyroscopic measurements in euler angles
+
+// bno.getQuat() is orientation in quaternion
+
+// bno.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER)
+// bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE)
+// bno.getVector(Adafruit_BNO055::VECTOR_EULER)
+// bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER) is total acceleration. frame?
+// bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL) is acceleration minus gravity. frame?
+// bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY) is experienced gravity. in imu frame
+
+// bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
+// bno.getEvent(&angVelocityData, Adafruit_BNO055::VECTOR_GYROSCOPE);
+// bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
+// bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
+// bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
+// bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
+
+// /* The WebSerial 3D Model Viewer expects data as heading, pitch, roll */
+// Serial.print(F("Orientation: "));
+// Serial.print(360 - (float)event.orientation.x);
+// Serial.print(F(", "));
+// Serial.print((float)event.orientation.y);
+// Serial.print(F(", "));
+// Serial.print((float)event.orientation.z);
+// Serial.println(F(""));
+
+// imu::Vector<3> a = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
 
 void sendIMUData() {
     // /* Get a new sensor event */
     sensors_event_t event;
     bno.getEvent(&event);
-    // event.orientation.x,y,z is orientation in euler angles
-    // event.acceleration.x,y,z is acceleration
-    // event.magnetic.x,y,z is magnetic field
-    // event.gyro.x,y,z is gyroscopic measurements in euler angles
     
-    // bno.getQuat() is orientation in quaternion
+    sendAcceleration(event);
+    sendOrientation(event);
+    sendGyro(event);
 
-    // bno.getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER)
-    // bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE)
-    // bno.getVector(Adafruit_BNO055::VECTOR_EULER)
-    // bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER) is total acceleration. frame?
-    // bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL) is acceleration minus gravity. frame?
-    // bno.getVector(Adafruit_BNO055::VECTOR_GRAVITY) is experienced gravity. in imu frame
-
-    // bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
-    // bno.getEvent(&angVelocityData, Adafruit_BNO055::VECTOR_GYROSCOPE);
-    // bno.getEvent(&linearAccelData, Adafruit_BNO055::VECTOR_LINEARACCEL);
-    // bno.getEvent(&magnetometerData, Adafruit_BNO055::VECTOR_MAGNETOMETER);
-    // bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
-    // bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
-
-    // /* The WebSerial 3D Model Viewer expects data as heading, pitch, roll */
-    // Serial.print(F("Orientation: "));
-    // Serial.print(360 - (float)event.orientation.x);
-    // Serial.print(F(", "));
-    // Serial.print((float)event.orientation.y);
-    // Serial.print(F(", "));
-    // Serial.print((float)event.orientation.z);
-    // Serial.println(F(""));
-
-    // imu::Vector<3> a = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
-
-
-    imu::Quaternion quat = bno.getQuat();
-    sendQuat(quat);
-    sendCalibrationStatus();
+    // imu::Quaternion quat = bno.getQuat();
+    // sendQuat(quat);
+    // sendCalibrationStatus();
 }
-
-
 
 void sendAcceleration(sensors_event_t event) {
-
+    Serial.print("[acceleration]{");
+    Serial.println(event.acceleration.x);
+    Serial.println(event.acceleration.y);
+    Serial.println(event.acceleration.z);
+    Serial.println("}");
 }
-void sendOrientation(sensors_event_t event) {
+void sendGyro(sensors_event_t event) {    
+    Serial.print("[gyro]{");
+    Serial.print(event.gyro.x);
+    Serial.print(event.gyro.y);
+    Serial.print(event.gyro.z);
+    Serial.println("}");
+}
 
+void sendOrientation(sensors_event_t event) {
+    Serial.print("[orientation]{");
+    Serial.print(event.orientation.x);
+    Serial.print(event.orientation.y);
+    Serial.print(event.orientation.z);
+    Serial.println("}");
 }
 
 
