@@ -10,6 +10,9 @@
 
 #define SERVOPIN 9
 
+#define OPENDEGREE 0
+#define CLOSEDEGREE 15
+
 // Check I2C device address and correct line below (by default address is 0x29 or 0x28)
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
@@ -40,8 +43,8 @@ void setup() {
     Serial.begin(115200);
     // Serial.println("WebSerial 3D Firmware"); Serial.println("");
 
-    imuINIT()
-    servoINIT()
+    imuINIT();
+    servoINIT();
 }
 
 
@@ -81,14 +84,16 @@ void blink(int n, int d) {
 void servoINIT() {
     servo.attach(SERVOPIN);
     pinMode(SERVOPIN, OUTPUT);
+
+    servoOpen();
 }
 
 void servoOpen() {
-    servo.write(opendegree);
+    servo.write(OPENDEGREE);
 }
 
 void servoClose() {
-    servo.write(closedegree);
+    servo.write(CLOSEDEGREE);
 }
 
 
@@ -168,26 +173,26 @@ void sendIMUData() {
 }
 
 void sendAcceleration(sensors_event_t event) {
-    Serial.print("[acceleration]{");
-    Serial.println(event.acceleration.x);
-    Serial.println(event.acceleration.y);
-    Serial.println(event.acceleration.z);
-    Serial.println("}");
+    Serial.print("{acceleration}[");
+    Serial.print(event.acceleration.x); Serial.print(',');
+    Serial.print(event.acceleration.y); Serial.print(',');
+    Serial.print(event.acceleration.z);
+    Serial.println("]");
 }
 void sendGyro(sensors_event_t event) {    
-    Serial.print("[gyro]{");
-    Serial.print(event.gyro.x);
-    Serial.print(event.gyro.y);
+    Serial.print("{gyro}[");
+    Serial.print(event.gyro.x); Serial.print(',');
+    Serial.print(event.gyro.y); Serial.print(',');
     Serial.print(event.gyro.z);
-    Serial.println("}");
+    Serial.println("]");
 }
 
 void sendOrientation(sensors_event_t event) {
-    Serial.print("[orientation]{");
-    Serial.print(event.orientation.x);
-    Serial.print(event.orientation.y);
+    Serial.print("{orientation}[");
+    Serial.print(event.orientation.x); Serial.print(',');
+    Serial.print(event.orientation.y); Serial.print(',');
     Serial.print(event.orientation.z);
-    Serial.println("}");
+    Serial.println("]");
 }
 
 
