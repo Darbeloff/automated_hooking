@@ -4,9 +4,10 @@ NODE_NAME = "GantryNode"
 
 import rospy
 import numpy as np
+import ctypes
 
 from can_msgs.msg import Frame
-
+from geometry_msgs.msg import Pose
 
 class numhex64(ctypes.Union):
     _fields_ = [("num", ctypes.c_double),
@@ -32,7 +33,7 @@ class GantryNode:
             rospy.get_param("~/gantry_position_topic", "gantry/position"),
             Pose, queue_size=1)
 
-        self.gantry_pub - rospy.Publisher(
+        self.gantry_pub = rospy.Publisher(
             '/sent_messages',
             Frame,
             queue_size=1)
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     rospy.init_node(NODE_NAME, anonymous=True)
     g = GantryNode()
 
-    g.set_velocity_callback([0,0,0])
-    rospy.sleep(0.5)
+    g.set_velocity_callback([0.2,0,0])
+    rospy.sleep(1)
     g.set_velocity_callback([0,0,0])
 
