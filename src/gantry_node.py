@@ -88,18 +88,18 @@ class GantryNode:
 
         # set x velocity
         frame1.id = 0x01
-        msgData1 = ""
+        msgData1 = []
         for idx in range(8):
-            msgData1 += chr(xSpeed.hex[idx])
+            msgData1.append(chr(xSpeed.hex[idx]))
         frame1.data = msgData1
         frame1.header.stamp = rospy.Time.now()
         self.gantry_pub.publish(frame1)
         
         # set y velocity
         frame2.id = 0x02
-        msgData2 = ""
+        msgData2 = []
         for idx in range(8):
-            msgData2 += chr(ySpeed.hex[idx])
+            msgData2.append(chr(ySpeed.hex[idx]))
         frame2.data = msgData2
         frame2.header.stamp = rospy.Time.now()
         self.gantry_pub.publish(frame2)
