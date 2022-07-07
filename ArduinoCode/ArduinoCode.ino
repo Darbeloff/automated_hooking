@@ -167,8 +167,9 @@ void sendIMUData() {
     sendOrientation(event);
     sendGyro(event);
 
-    // imu::Quaternion quat = bno.getQuat();
-    // sendQuat(quat);
+    imu::Quaternion quat = bno.getQuat();
+    sendQuat(quat);
+
     // sendCalibrationStatus();
 }
 
@@ -177,14 +178,14 @@ void sendAcceleration(sensors_event_t event) {
     Serial.print(event.acceleration.x); Serial.print(',');
     Serial.print(event.acceleration.y); Serial.print(',');
     Serial.print(event.acceleration.z);
-    Serial.println("]");
+    Serial.println(']');
 }
 void sendGyro(sensors_event_t event) {    
     Serial.print("{gyro}[");
     Serial.print(event.gyro.x); Serial.print(',');
     Serial.print(event.gyro.y); Serial.print(',');
     Serial.print(event.gyro.z);
-    Serial.println("]");
+    Serial.println(']');
 }
 
 void sendOrientation(sensors_event_t event) {
@@ -192,20 +193,17 @@ void sendOrientation(sensors_event_t event) {
     Serial.print(event.orientation.x); Serial.print(',');
     Serial.print(event.orientation.y); Serial.print(',');
     Serial.print(event.orientation.z);
-    Serial.println("]");
+    Serial.println(']');
 }
 
 
 void sendQuaternion(imu::Quaternion quat) {
-    Serial.print(F("Quaternion: "));
-    Serial.print((float)quat.w(), SERIAL_DIGITS);
-    Serial.print(F(", "));
-    Serial.print((float)quat.x(), SERIAL_DIGITS);
-    Serial.print(F(", "));
-    Serial.print((float)quat.y(), SERIAL_DIGITS);
-    Serial.print(F(", "));
-    Serial.print((float)quat.z(), SERIAL_DIGITS);
-    Serial.println(F(""));
+    Serial.print("{quaternion}[");
+    Serial.print(quat.x(), SERIAL_DIGITS); Serial.print(',');
+    Serial.print(quat.y(), SERIAL_DIGITS); Serial.print(',');
+    Serial.print(quat.z(), SERIAL_DIGITS); Serial.print(',');
+    Serial.print(quat.w(), SERIAL_DIGITS);
+    Serial.println(']');
 }
 
 void sendCalibrationStatus() {
