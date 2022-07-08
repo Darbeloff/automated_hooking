@@ -14,12 +14,11 @@ class PIDController:
         return [0,0]
 
 class LPController:
-    def __init__(self, tau, state_indices):
+    def __init__(self, tau):
         self.tau = tau
-        self.state_indices = state_indices
-
+        
     def do_control(self, state, target, delta_t):
-        state = np.array(state)[state_indices]
+        state = np.array(state)
         target = np.array(target)
 
         if len(target) != len(state):

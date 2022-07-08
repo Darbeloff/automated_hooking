@@ -17,7 +17,7 @@ class WinchNode:
     It is separate from gantry node because it may run on a separate Pi
     """
     MAX_VEL = 100000 # Max. speed for winch in encoder counts per second
-
+    RATE = 20
     def __init__(self):
 
         # Publishers
@@ -46,12 +46,12 @@ class WinchNode:
         self.target_velocity = [0,0]
         self.target_position = None
 
-        # position 1,2,3; velocity 1,2,3
-        self.state = np.zeros([6])
+        # position 1,2,3; velocity 1,2,3; current 1,2,3
+        self.state = np.zeros([9])
 
-        self.prev_time = rospy.get_rostime().to_sec() - 1.0/20
+        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
 
-        rate = rospy.Rate(20)
+        rate = rospy.Rate(self.RATE)
         while not rospy.is_shutdown():
             self.loop_callback()
             rate.sleep()

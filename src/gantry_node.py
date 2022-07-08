@@ -24,25 +24,116 @@ class numhex32(ctypes.Union):
                 ("uint", ctypes.c_uint32),
                 ("hex", ctypes.c_ubyte * 4)]
 
+class State:
+
+    DATA_LENGTH = {
+        'double':8,
+        'int32':4,
+        'bool':1,
+        'bool3':3
+    }
+    NAME_table = {
+        'x_axis_actual_control_speed_0': [0x11, 'double'],
+        'x_axis_actual_control_speed_1': [0x12, 'double'],
+        'y_axis_actual_control_speed': [0x13, 'double'],
+
+        'laser_distance_0': [0x101, 'int32'],
+        'laser_distance_1': [0x201, 'int32'],
+        'laser_distance_2': [0x301, 'int32'],
+
+        'encoder_ppr_0': [0x102, 'int32'],
+        'encoder_inc_0': [0x103, 'int32'],
+        'encoder_abs_0': [0x104, 'int32'],
+        'encoder_speed_0': [0x105, 'int32'],
+        
+        'encoder_ppr_1': [0x202, 'int32'],
+        'encoder_inc_1': [0x203, 'int32'],
+        'encoder_abs_1': [0x204, 'int32'],
+        'encoder_speed_1': [0x105, 'int32'],
+
+        'encoder_ppr_2': [0x302, 'int32'],
+        'encoder_inc_2': [0x303, 'int32'],
+        'encoder_abs_2': [0x304, 'int32'],
+        'encoder_speed_2': [0x305, 'int32'],
+
+
+        'control_x_speed': [0x01, 'double']
+        'control_y_speed': [0x02, 'double']
+        
+        'reset_encoder_0': [0x100, 'bool']
+        'reset_encoder_1': [0x200, 'bool']
+        'reset_encoder_2': [0x300, 'bool']
+    }
+    ID_table = {}
+
+    state = {}
+
+    def __init__(self):
+        # copy NAME_table into refactored ID_table
+        for key in self.NAME_table.keys():
+            id, can_type = self.NAME_table[key]
+            self.ID_table[id] = [key, can_type] 
+        
+    
+    def process(self, msg):
+        """ Takes a Frame message and updates state accordingly
+        """
+        key = self.id_table[msg.id]
+
+        numhex = numhex64()
+        numhex.hex = msg.data # TODO: check this
+
+        state[key] = numhex.num
+
+    def write(self, name, value):
+        id, can_type = self.NAME_table[name]
+        length = self.DATA_LENGTH[can_type]
+
+        
+        msg = Frame()
+        msg.is_rtr = False
+        msg.is_extended = False
+        msg.dlc = length
+        msg.id = id
+        msg.data = ""
+        
+        numhex = numhex64()
+        numhex.num = value
+        
+        for idx in range(length):
+            msg.data += chr(numhex.hex[idx])
+        
+        msg.header.stamp = rospy.get_rostime()
+        self.gantry_pub.publish(msg)
+
+
+
 class GantryNode:
     """
     This node interfaces with the ODrive boards and attached encoders, to drive the gantry at either a desired velocity or to a desired position
 
     Reports gantry position at some frequency
     """
+    RATE = 20 # hz
+
+
     def __init__(self):
-        # publishers
+        # Publishers
         self.state_pub = rospy.Publisher(
             rospy.get_param("~/gantry_state_topic", "gantry/state"),
             Odometry, queue_size=10)
 
-        # received by the CAN node on the gantry (which in turn speaks to the CAN arduino over serial via dark and unknowable magics)
         self.gantry_pub = rospy.Publisher(
-            '/sent_messages',
-            Frame,
-            queue_size=10)
+            rospy.get_param('~/can_sent_messages','/sent_messages'),
+            Frame, queue_size=10)
+            # received by the CAN node on the gantry (which in turn speaks to the CAN arduino over serial via dark and unknowable magics)
 
-        # subscribers
+
+        # Subscribers
+        rospy.Subscriber(
+            rospy.get_param("~/can_received_messages", "/received_messages"),
+            Frame, self.can_message_callback, queue_size=10)
+
         rospy.Subscriber(
             rospy.get_param("~/gantry_velocity_set_topic", "gantry/velocity_set"),
             Twist, self.set_velocity_callback, queue_size=10)
@@ -58,10 +149,12 @@ class GantryNode:
 
         self.velocity = [0,0]
         self.position = [0,0] # TODO: Get this from encoder data
+        # 
+        self.state = np.zeros(4)
 
-        self.prev_time = rospy.get_rostime().to_sec() - 1.0/20
+        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
 
-        rate = rospy.Rate(20)
+        rate = rospy.Rate(self.RATE)
         while not rospy.is_shutdown():
             self.loop_callback()
             rate.sleep()
