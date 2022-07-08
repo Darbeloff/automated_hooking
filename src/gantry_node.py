@@ -26,15 +26,22 @@ class numhex32(ctypes.Union):
                 ("uint", ctypes.c_uint32),
                 ("hex", ctypes.c_ubyte * 4)]
 
-class State:
 
+
+
+class GantryNode:
+    """
+    This node interfaces with the ODrive boards and attached encoders, to drive the gantry at either a desired velocity or to a desired position
+
+    Reports gantry position at some frequency
+    """
     DATA_LENGTH = {
         'double':8,
         'int32':4,
         'bool':1,
         'bool3':3
     }
-    NAME_table = {
+    NAME_TABLE = {
         'x_axis_actual_control_speed_0': [0x11, 'double'],
         'x_axis_actual_control_speed_1': [0x12, 'double'],
         'y_axis_actual_control_speed': [0x13, 'double'],
@@ -59,65 +66,18 @@ class State:
         'encoder_speed_2': [0x305, 'int32'],
 
 
-        'control_x_speed': [0x01, 'double']
-        'control_y_speed': [0x02, 'double']
+        'control_x_speed': [0x01, 'double'],
+        'control_y_speed': [0x02, 'double'],
         
-        'reset_encoder_0': [0x100, 'bool']
-        'reset_encoder_1': [0x200, 'bool']
+        'reset_encoder_0': [0x100, 'bool'],
+        'reset_encoder_1': [0x200, 'bool'],
         'reset_encoder_2': [0x300, 'bool']
     }
-    ID_table = {}
+    ID_TABLE = {}
 
     state = {}
-
-    def __init__(self):
-        # copy NAME_table into refactored ID_table
-        for key in self.NAME_table.keys():
-            id, can_type = self.NAME_table[key]
-            self.ID_table[id] = [key, can_type] 
         
-    
-    def process(self, msg):
-        """ Takes a Frame message and updates state accordingly
-        """
-        key = self.id_table[msg.id]
-
-        numhex = numhex64()
-        numhex.hex = msg.data # TODO: check this
-
-        state[key] = numhex.num
-
-    def write(self, name, value):
-        id, can_type = self.NAME_table[name]
-        length = self.DATA_LENGTH[can_type]
-
-        
-        msg = Frame()
-        msg.is_rtr = False
-        msg.is_extended = False
-        msg.dlc = length
-        msg.id = id
-        msg.data = ""
-        
-        numhex = numhex64()
-        numhex.num = value
-        
-        for idx in range(length):
-            msg.data += chr(numhex.hex[idx])
-        
-        msg.header.stamp = rospy.get_rostime()
-        self.gantry_pub.publish(msg)
-
-
-
-class GantryNode:
-    """
-    This node interfaces with the ODrive boards and attached encoders, to drive the gantry at either a desired velocity or to a desired position
-
-    Reports gantry position at some frequency
-    """
     RATE = 20 # hz
-
 
     def __init__(self):
         # Publishers
@@ -143,35 +103,45 @@ class GantryNode:
             rospy.get_param("~/gantry_position_set_topic", "gantry/position_set"),
             Pose, self.set_position_callback, queue_size=10)
         
-        self.velocity_controller = LPController(1., [0,1])
-        self.position_controller = PIDController(1.,0.001,0.001, [1])
+        self.velocity_controller = LPController(1.)
+        self.position_controller = PIDController(1.,0.001,0.001)
+
+        # copy NAME_TABLE into refactored ID_TABLE
+        for key in self.NAME_TABLE.keys():
+            id, can_type = self.NAME_TABLE[key]
+            self.ID_TABLE[id] = [key, can_type]
 
         self.target_velocity = [0,0]
         self.target_position = None
 
         self.velocity = [0,0]
         self.position = [0,0] # TODO: Get this from encoder data
-        # 
-        self.state = np.zeros(4)
-
+        
         self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
 
 
-        def test():
-            tmsg = Twist()
-            tmsg.linear = [0,-3]
+        # def test():
+        #     tmsg = Twist()
+        #     tmsg.linear = [0,-3]
 
-            self.set_velocity_callback(tmsg)
+        #     self.set_velocity_callback(tmsg)
 
-            rospy.sleep(4)
+        #     rospy.sleep(4)
             
-            tmsg.linear = [0,0]
-            self.set_velocity_callback(tmsg)
+        #     tmsg.linear = [0,0]
+        #     self.set_velocity_callback(tmsg)
 
-        worker = Thread(target=test)
-        worker.daemon = True
-        worker.start()
+        # worker = Thread(target=test)
+        # worker.daemon = True
+        # worker.start()
 
+        rospy.loginfo("yo")
+        msg = self.write_velocity([1,0])
+        msg2 = self.send_can_frame('control_x_speed', 1)
+        print(msg)
+        print(msg2)
+
+        quit()
 
         rate = rospy.Rate(self.RATE)
         while not rospy.is_shutdown():
@@ -188,7 +158,7 @@ class GantryNode:
         if self.target_velocity != None:
             velocity_control = self.velocity_controller.do_control(self.velocity, self.target_velocity, delta_t)
         else:
-            velocity_control = self.position_controller.do_control(self.velocity, self.target_position, delta_t)
+            velocity_control = self.position_controller.do_control(self.position, self.target_position, delta_t)
 
         self.write_velocity(velocity_control)
         self.velocity = velocity_control # TODO: get this from sensor feedback
@@ -196,6 +166,7 @@ class GantryNode:
         self.publish_state()
 
         self.prev_time = time
+
 
     def set_velocity_callback(self, msg):
         """
@@ -211,7 +182,6 @@ class GantryNode:
 
         rospy.loginfo("Velocity set to x: %f rps, y: %f rps", msg.linear[0], msg.linear[1])
         
-
     def set_position_callback(self, msg):
         """
         Set the target position of the gantry
@@ -219,49 +189,90 @@ class GantryNode:
         self.target_velocity = None
         self.target_position = msg.position
 
+    def can_message_callback(self, msg):
+        pass
+
+    def process(self, msg):
+        """ Takes a Frame message and updates state accordingly
+        """
+        key, can_type = self.ID_TABLE[msg.id]
+
+        numhex = numhex64()
+        for idx in range(msg.dlc):
+            numhex.hex[idx] = ord(msg.data[idx]) # TODO: check this
+
+        return numhex.num
+        # state[key] = numhex.num
+
+    def send_can_frame(self, name, value):
+        id, can_type = self.NAME_TABLE[name]
+        length = self.DATA_LENGTH[can_type]
+
+        
+        msg = Frame()
+        msg.is_rtr = False
+        msg.is_extended = False
+        msg.dlc = length
+        msg.id = id
+        msg.data = ""
+        
+        numhex = numhex64()
+        numhex.num = value
+        
+        for idx in range(length):
+            msg.data += chr(numhex.hex[idx])
+        
+        msg.header.stamp = rospy.get_rostime()
+        self.gantry_pub.publish(msg)
+
+        return msg
+
+
     def write_velocity(self, velocity):
         """
         Send velocity commands to the gantry motors
         """
+        self.send_can_frame('control_x_speed', velocity[0])
+        self.send_can_frame('control_y_speed', velocity[1])
 
-        xSpeed = numhex64()
-        xSpeed.num = velocity[0]
+        # xSpeed = numhex64()
+        # xSpeed.num = velocity[0]
 
-        ySpeed = numhex64()
-        ySpeed.num = velocity[1]
+        # ySpeed = numhex64()
+        # ySpeed.num = velocity[1]
 
 
-        msgData1 = ""
-        frame1 = Frame()
-        frame1.is_rtr = False
-        frame1.is_extended = False
-        frame1.dlc = 8
+        # msgData1 = ""
+        # frame1 = Frame()
+        # frame1.is_rtr = False
+        # frame1.is_extended = False
+        # frame1.dlc = 8
 
-        msgData2 = ""
-        frame2 = Frame()
-        frame2.is_rtr = False
-        frame2.is_extended = False
-        frame2.dlc = 8
+        # msgData2 = ""
+        # frame2 = Frame()
+        # frame2.is_rtr = False
+        # frame2.is_extended = False
+        # frame2.dlc = 8
         
         
 
-        # set x velocity
-        frame1.id = 0x01
-        msgData1 = ""
-        for idx in range(8):
-            msgData1 += chr(xSpeed.hex[idx])
-        frame1.data = msgData1
-        frame1.header.stamp = rospy.Time.now()
-        self.gantry_pub.publish(frame1)
+        # # set x velocity
+        # frame1.id = 0x01
+        # msgData1 = ""
+        # for idx in range(8):
+        #     msgData1 += chr(xSpeed.hex[idx])
+        # frame1.data = msgData1
+        # frame1.header.stamp = rospy.Time.now()
+        # self.gantry_pub.publish(frame1)
         
-        # set y velocity
-        frame2.id = 0x02
-        msgData2 = ""
-        for idx in range(8):
-            msgData2 += chr(ySpeed.hex[idx])
-        frame2.data = msgData2
-        frame2.header.stamp = rospy.Time.now()
-        self.gantry_pub.publish(frame2)
+        # # set y velocity
+        # frame2.id = 0x02
+        # msgData2 = ""
+        # for idx in range(8):
+        #     msgData2 += chr(ySpeed.hex[idx])
+        # frame2.data = msgData2
+        # frame2.header.stamp = rospy.Time.now()
+        # self.gantry_pub.publish(frame2)
 
         # rospy.loginfo("x: %f rps, y: %f rps", xSpeed.num, ySpeed.num)
 

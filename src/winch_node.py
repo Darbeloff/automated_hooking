@@ -47,7 +47,9 @@ class WinchNode:
         self.target_position = None
 
         # position 1,2,3; velocity 1,2,3; current 1,2,3
-        self.state = np.zeros([9])
+        self.position = [0,0,0]
+        self.velocity = [0,0,0]
+        self.current = [0,0,0]
 
         self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
 
