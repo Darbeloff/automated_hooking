@@ -6,6 +6,8 @@ import rospy
 import numpy as np
 import ctypes
 
+from threading import Thread
+
 from can_msgs.msg import Frame
 from geometry_msgs.msg import Pose, Twist
 from nav_msgs.msg import Odometry
@@ -141,8 +143,8 @@ class GantryNode:
             rospy.get_param("~/gantry_position_set_topic", "gantry/position_set"),
             Pose, self.set_position_callback, queue_size=10)
         
-        self.velocity_controller = LPController(1.)
-        self.position_controller = PIDController(1.,0.001,0.001)
+        self.velocity_controller = LPController(1., [0,1])
+        self.position_controller = PIDController(1.,0.001,0.001, [1])
 
         self.target_velocity = [0,0]
         self.target_position = None
@@ -153,6 +155,23 @@ class GantryNode:
         self.state = np.zeros(4)
 
         self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
+
+
+        def test():
+            tmsg = Twist()
+            tmsg.linear = [0,-3]
+
+            self.set_velocity_callback(tmsg)
+
+            rospy.sleep(4)
+            
+            tmsg.linear = [0,0]
+            self.set_velocity_callback(tmsg)
+
+        worker = Thread(target=test)
+        worker.daemon = True
+        worker.start()
+
 
         rate = rospy.Rate(self.RATE)
         while not rospy.is_shutdown():
@@ -172,9 +191,9 @@ class GantryNode:
             velocity_control = self.position_controller.do_control(self.velocity, self.target_position, delta_t)
 
         self.write_velocity(velocity_control)
-        self.velocity = self.velocity_control # TODO: get this from sensor feedback
+        self.velocity = velocity_control # TODO: get this from sensor feedback
 
-        self.publish_position()
+        self.publish_state()
 
         self.prev_time = time
 
@@ -189,6 +208,8 @@ class GantryNode:
         # TODO: might be in wrong form
         self.target_velocity = msg.linear
         self.target_position = None
+
+        rospy.loginfo("Velocity set to x: %f rps, y: %f rps", msg.linear[0], msg.linear[1])
         
 
     def set_position_callback(self, msg):
@@ -242,7 +263,7 @@ class GantryNode:
         frame2.header.stamp = rospy.Time.now()
         self.gantry_pub.publish(frame2)
 
-        # rospy.loginfo("x: %f rps, y: %f rps, z: %f perc", xSpeed.num, ySpeed.num, -zSpeed)
+        # rospy.loginfo("x: %f rps, y: %f rps", xSpeed.num, ySpeed.num)
 
     def publish_state(self):
         """
@@ -255,9 +276,5 @@ if __name__ == '__main__':
     rospy.init_node(NODE_NAME, anonymous=True)
     g = GantryNode()
 
-    g.set_velocity_callback([0.2,0])
-    rospy.sleep(1)
-    g.set_velocity_callback([0,0])
-
-    rospy.spin()
+    # rospy.spin()
 
