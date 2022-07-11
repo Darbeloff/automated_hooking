@@ -5,10 +5,15 @@ NODE_NAME = "WinchNode"
 import rospy
 import numpy as np
 
+from threading import Thread
+
 from geometry_msgs.msg import Pose, Twist
+from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
+
 from OdriveClass import Odrive
+from Controls import PIDController, LPController
 
 
 class WinchNode:
@@ -21,9 +26,9 @@ class WinchNode:
     def __init__(self):
 
         # Publishers
-        self.position_pub = rospy.Publisher(
-            rospy.get_param("~/winch_position_topic", "winch/position"),
-            Pose, queue_size=10)
+        self.state_pub = rospy.Publisher(
+            rospy.get_param("~/winch_state_topic", "winch/state"),
+            JointState, queue_size=10)
 
 
         # Subscribers
@@ -35,15 +40,17 @@ class WinchNode:
             Pose, self.set_position_callback, queue_size=1)
 
         # Initialize Odrive interfaces
-        odrv0 = Odrive('20673881304E') # Only has 1 winch
-        odrv1 = Odrive('2087377E3548') # Has 2 winches
+        self.odrv0 = Odrive('20673881304E') # Only has 1 winch
+        self.odrv1 = Odrive('2087377E3548') # Has 2 winches
 
 
 
+        self.current_filter = LPController(0.1)
         self.velocity_controller = LPController(1.)
         self.position_controller = PIDController(1.,0.001,0.001)
 
-        self.target_velocity = [0,0]
+
+        self.target_velocity = [0,0,0]
         self.target_position = None
 
         # position 1,2,3; velocity 1,2,3; current 1,2,3
@@ -53,6 +60,17 @@ class WinchNode:
 
         self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
 
+        # def test():
+        #     self.target_velocity = [0,-100,0]
+        #     rospy.sleep(10)
+        #     self.target_velocity = [0,0,0]
+
+        # worker = Thread(target=test)
+        # worker.daemon = True
+        # worker.start()
+
+        
+        rospy.logwarn(NODE_NAME + " is online")
         rate = rospy.Rate(self.RATE)
         while not rospy.is_shutdown():
             self.loop_callback()
@@ -71,8 +89,25 @@ class WinchNode:
             velocity_control = self.position_controller.do_control(self.position, self.target_position, delta_t)
 
         self.write_velocity(velocity_control)
-        self.velocity = self.velocity_control # TODO: get this from sensor feedback
-
+        
+        self.position =  [   # in rotations
+            self.odrv0.get_encoder_count(0).pos_estimate,
+            self.odrv1.get_encoder_count(0).pos_estimate,
+            self.odrv1.get_encoder_count(1).pos_estimate
+        ]
+        # self.velocity = [    # in rotations per second
+        #     self.odrv0.get_encoder_count(0).vel_estimate,
+        #     self.odrv1.get_encoder_count(0).vel_estimate,
+        #     self.odrv1.get_encoder_count(1).vel_estimate
+        # ]
+        self.velocity = velocity_control # TODO: doing it the other way causes feedback issues-- look into this
+        self.raw_current = [      # in amps
+            self.odrv0.get_current(0),
+            self.odrv1.get_current(0),
+            self.odrv1.get_current(1)
+        ]
+        self.current = self.current_filter.do_control(self.current, self.raw_current, delta_t)
+        
         self.publish_state()
 
         self.prev_time = time
@@ -96,18 +131,28 @@ class WinchNode:
         self.target_position = msg.position
 
 
-    def write_velocity(self, velocity):
-        # Odrive speed
-        zSpeed = -velocity
+    def write_velocity(self, target_velocity):
         # Control winch
-        des_vel = self.MAX_VEL*float(zSpeed)/100.
-        odrv0.VelMove(des_vel,0)
+
+        des_vel = target_velocity*self.MAX_VEL/100.
+        self.odrv0.VelMove(des_vel[0],0)
+        self.odrv1.VelMove(des_vel[1],0)
+        self.odrv1.VelMove(des_vel[2],1)
+
+        # rospy.loginfo(des_vel)
 
     def publish_state(self):
         """
         Report the position of the winch lines, computed from encoder counts
         """
-        pass
+        msg = JointState()
+        msg.header.stamp = rospy.get_rostime()
+        msg.name = ['0','1','2']
+        msg.position =  self.position   # in rotations
+        msg.velocity = self.velocity    # in rotations per second
+        msg.effort = self.current      # in amps
+
+        self.state_pub.publish(msg)
 
 
 if __name__ == '__main__':

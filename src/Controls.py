@@ -24,4 +24,4 @@ class LPController:
         if len(target) != len(state):
             raise Exception("Low Pass Controller requires target state length to match state length")
 
-        return state*(delta_t / self.tau) + target*(1. - delta_t / self.tau)
+        return state*(1. - delta_t / self.tau) + target*(delta_t / self.tau)
