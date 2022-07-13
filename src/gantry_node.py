@@ -193,10 +193,7 @@ class GantryNode:
         positive y: towards machine wall
         positive z: up
         """
-        # TODO: might be in wrong form
-        rospy.logwarn("received message")
-
-
+        
         self.target_velocity = Vector.to_array(msg.linear)[:2]
         self.target_position = None
 
@@ -210,6 +207,10 @@ class GantryNode:
         self.target_position = Vector.to_array(msg.position)[:2]
 
     def can_message_callback(self, msg):
+        """
+        Process the messages recieved from the CAN node. Store them in state
+        """
+        
         pass
 
     def process(self, msg):
@@ -231,6 +232,10 @@ class GantryNode:
         CAN_STATE[key] = val
 
     def send_can_frame(self, name, value):
+        """
+        A reasonably generic way to send message to the CAN node that doesnt rot the mind
+        """
+
         id, can_type = self.NAME_TABLE[name]
         length = self.DATA_LENGTH[can_type]
         
@@ -242,15 +247,16 @@ class GantryNode:
         msg.data = ""
         
         numhex = numhex64()
-        numhex.num = value
+        if can_type == 'int32':
+            numhex.uint = value
+        elif can_type == 'double':
+            numhex.num = value
         
         for idx in range(length):
             msg.data += chr(numhex.hex[idx])
         
         msg.header.stamp = rospy.get_rostime()
         self.gantry_pub.publish(msg)
-
-        return msg
 
 
     def write_velocity(self, velocity):
@@ -259,8 +265,6 @@ class GantryNode:
         """
         self.send_can_frame('control_x_speed', velocity[0])
         self.send_can_frame('control_y_speed', velocity[1])
-
-        # rospy.loginfo("x: %f rps, y: %f rps", velocity[0], velocity[1])
 
 
     def publish_state(self):
@@ -274,5 +278,5 @@ if __name__ == '__main__':
     rospy.init_node(NODE_NAME, anonymous=True)
     g = GantryNode()
 
-    # rospy.spin()
+    rospy.spin()
 
