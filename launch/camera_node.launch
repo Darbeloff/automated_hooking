@@ -1,10 +1,20 @@
 <launch>
   <!-- START CAMERA WRAPPERS -->
+  <group ns="cameras">
+    <include file="$(find realsense2_camera)/launch/rs_multiple_devices.launch">
+      <arg name="serial_no_camera1" value="f0172424" />
+      <arg name="camera1" value="front_cam" />
+      
+      <arg name="serial_no_camera2" value="f0233197" />
+      <arg name="camera2" value="back_cam" />
+    </include>
+  </group>
+
   <!-- START APRIL TAG WRAPPER -->
   <group ns="april_tag_wrapper">
-    <remap from="/tf" to="camera/april_tag_tf">
+    <remap from="/tf" to="camera/april_tag_tf" />
 
-    <include file="$(find apriltags2_ros)/launch/continuous_detection.launch">
+    <include file="$(find apriltags2_ros)/launch/continuous_detection.launch" />
   </group>
 
   <!-- <node pkg="pr_apriltags" type="pr_apriltags" name="pr_apriltags" output="screen">
