@@ -76,6 +76,21 @@ class HookingController:
 
         rospy.logwarn("end")
 
+    def do_hooking_V2(self):
+        # Get position of table_tag in world space
+        # Get position of target position in world space
+        # Get movement direction from table_tag
+        
+        # Move to target position in world space
+        # Await arrival in world space
+        # Lower hook appropriately
+        # Move in direction
+        # Await amperage trigger
+        # Stop moving
+        # Done
+
+        pass
+
 
     def do_hooking(self):
         # do CV to get peg coords
