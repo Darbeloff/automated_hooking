@@ -13,6 +13,7 @@ from geometry_msgs.msg import Pose, Twist
 from nav_msgs.msg import Odometry
 
 from Controls import PIDController, LPController
+from Utils import Vector
 
 class numhex64(ctypes.Union):
     _fields_ = [("num", ctypes.c_double),
@@ -26,21 +27,6 @@ class numhex32(ctypes.Union):
                 ("uint", ctypes.c_uint32),
                 ("hex", ctypes.c_ubyte * 4)]
 
-
-class Vector:
-    def __init__(self, array):
-        self.x = array[0]
-        self.y = array[1]
-        if len(array) > 2:
-            self.z = array[2]
-    
-    @staticmethod
-    def to_array(vector):
-        try:
-            return [vector.x, vector.y, vector.z]
-        except:
-            return [vector.x, vector.y]
-
 class GantryNode:
     """
     This node interfaces with the ODrive boards and attached encoders, to drive the gantry at either a desired velocity or to a desired position
@@ -53,54 +39,99 @@ class GantryNode:
         'bool':1,
         'bool3':3
     }
+
+
+    # Experimental data:
+    #     id (hex)  data_length
+    # ['1'   '0x1'   '8'] < double - control
+    # ['2'   '0x2'   '8'] < double - control
+    # [''    '0x4'   '?']
+    # ['16'  '0x10'  '3'] < bool3 - status
+    # ['17'  '0x11'  '8'] < double
+    # ['18'  '0x12'  '8'] < double
+    # ['19'  '0x13'  '8'] < double
+    # ['32'  '0x20'  '1'] < bool1 - status
+    # ['33'  '0x21'  '8'] < double
+    # ['257' '0x101' '4'] < int32
+    # ['258' '0x102' '4'] < int32
+# baffling
+# 1074790400 when moved in x-
+# 3222274048 when moved in x+
+
+# 1074266112 when moved in y+
+# 3221749760 when moved in y-
+
+    # ['259' '0x103' '4'] < int32
+    # ['260' '0x104' '4'] < int32
+    # ['261' '0x105' '4'] < int32
+    # ['273' '0x111' '4'] < int32
+    # ['274' '0x112' '4'] < int32
+    # ['275' '0x113' '4'] < int32
+    # ['276' '0x114' '4'] < int32
+    # ['277' '0x115' '4'] < int32
+    # ['290' '0x122' '4'] < int32
+    # ['291' '0x123' '4'] < int32
+    # ['292' '0x124' '4'] < int32
+    # ['293' '0x125' '4'] < int32
+    # message types: 22
+
     NAME_TABLE = {
-        'x_axis_actual_control_speed_0': [0x11, 'double'],
-        'x_axis_actual_control_speed_1': [0x12, 'double'],
-        'y_axis_actual_control_speed': [0x13, 'double'],
+        # rad/sec
+        'control_x_speed': [0x01, 'double'], # YES
+        'control_y_speed': [0x02, 'double'], # YES
+        
+        'main_crane_driver_status': [0x10, 'bool3'], # LIKELY
+        'sub_crane_driver_status': [0x20, 'double'], # LIKELY
 
+        'x_axis_actual_control_speed_0': [0x11, 'double'],  # LIKELY
+        'x_axis_actual_control_speed_1': [0x12, 'double'],  # LIKELY
+        'y_axis_actual_control_speed': [0x13, 'double'],    # LIKELY
+        
+        'y_axis_actual_control_speed_mirror': [0x21, 'double'], # LIKELY
+
+        # mm
         'laser_distance_0': [0x101, 'int32'],
-        'laser_distance_1': [0x201, 'int32'],
-        'laser_distance_2': [0x301, 'int32'],
+        'laser_distance_1': [0x111, 'int32'],
+        # 'laser_distance_2': [0x121, 'int32'], # no laser on the a axis
 
+        # Counts, counts/sec (2048 counts = 1rev = 300mm)
         'encoder_ppr_0': [0x102, 'int32'],
-        'encoder_inc_0': [0x103, 'int32'],
+        'encoder_inc_0': [0x103, 'int32'], # overflows at 4294967295
         'encoder_abs_0': [0x104, 'int32'],
         'encoder_speed_0': [0x105, 'int32'],
         
-        'encoder_ppr_1': [0x202, 'int32'],
-        'encoder_inc_1': [0x203, 'int32'],
-        'encoder_abs_1': [0x204, 'int32'],
-        'encoder_speed_1': [0x105, 'int32'],
+        'encoder_ppr_1': [0x112, 'int32'],
+        'encoder_inc_1': [0x113, 'int32'],
+        'encoder_abs_1': [0x114, 'int32'],
+        'encoder_speed_1': [0x115, 'int32'],
 
-        'encoder_ppr_2': [0x302, 'int32'],
-        'encoder_inc_2': [0x303, 'int32'],
-        'encoder_abs_2': [0x304, 'int32'],
-        'encoder_speed_2': [0x305, 'int32'],
+        'encoder_ppr_2': [0x122, 'int32'],
+        'encoder_inc_2': [0x123, 'int32'],
+        'encoder_abs_2': [0x124, 'int32'],
+        'encoder_speed_2': [0x125, 'int32'],
 
 
-        'control_x_speed': [0x01, 'double'],
-        'control_y_speed': [0x02, 'double'],
-        
-        'reset_encoder_0': [0x100, 'bool'],
-        'reset_encoder_1': [0x200, 'bool'],
-        'reset_encoder_2': [0x300, 'bool']
+        # 'reset_encoder_0': [0x100, 'bool'],
+        # 'reset_encoder_1': [0x200, 'bool'],
+        # 'reset_encoder_2': [0x300, 'bool'],
     }
     ID_TABLE = {}
 
     CAN_STATE = {}
-        
+
+    
     RATE = 20 # hz
 
     def __init__(self):
         # Publishers
         self.state_pub = rospy.Publisher(
             rospy.get_param("~/gantry_state_topic", "gantry/state"),
-            Odometry, queue_size=10)
+            Odometry, queue_size=1)
 
+            # received by the CAN node on the gantry (which in turn speaks to the CAN arduino over serial via dark and unknowable magics)
         self.gantry_pub = rospy.Publisher(
             rospy.get_param('~/can_sent_messages','/sent_messages'),
-            Frame, queue_size=10)
-            # received by the CAN node on the gantry (which in turn speaks to the CAN arduino over serial via dark and unknowable magics)
+            Frame, queue_size=1)
 
 
         # Subscribers
@@ -115,13 +146,18 @@ class GantryNode:
             rospy.get_param("~/gantry_position_set_topic", "gantry/position_set"),
             Pose, self.set_position_callback, queue_size=10)
         
-        self.velocity_controller = LPController(0.1)
-        self.position_controller = PIDController(1.,0.001,0.001)
 
-        # copy NAME_TABLE into refactored ID_TABLE
+
+        # copy NAME_TABLE into ID_TABLE, initialize CAN_STATE
         for key in self.NAME_TABLE.keys():
             id, can_type = self.NAME_TABLE[key]
+            id = hex(id)
             self.ID_TABLE[id] = [key, can_type]
+            self.CAN_STATE[key] = None
+        
+        
+        self.velocity_controller = LPController(0.1)
+        self.position_controller = PIDController(1.,0.001,0.001)
 
         self.target_velocity = [0,0]
         self.target_position = None
@@ -130,6 +166,16 @@ class GantryNode:
         self.position = [0,0] # TODO: Get this from encoder data
         
         self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
+
+
+
+
+
+        # msg = self.send_can_frame('encoder_ppr_0', 7342, publish=False)
+        # val = self.can_message_callback(msg)
+        # print(val)
+        # quit()
+
 
 
         def test():
@@ -149,14 +195,6 @@ class GantryNode:
         # worker = Thread(target=test)
         # worker.daemon = True
         # worker.start()
-
-        # rospy.loginfo("yo")
-        # msg = self.write_velocity([1,0])
-        # msg2 = self.send_can_frame('control_x_speed', 1)
-        # print(msg)
-        # print(msg2)
-
-        # quit()
 
         rospy.logwarn(NODE_NAME + " is online")
 
@@ -178,9 +216,19 @@ class GantryNode:
             velocity_control = self.position_controller.do_control(self.position, self.target_position, delta_t)
 
         self.write_velocity(velocity_control)
+        # TODO: figure out unit conversions
+        x_speed = self.CAN_STATE['x_axis_actual_control_speed_0']
+        y_speed = self.CAN_STATE['y_axis_actual_control_speed']
+
         self.velocity = velocity_control # TODO: get this from sensor feedback
+        self.position = [0,0]
 
         self.publish_state()
+
+
+        if self.CAN_STATE['encoder_speed_0'] != None:
+            val = self.CAN_STATE['encoder_speed_0']
+            rospy.loginfo("encoder info: %s" % val)
 
         self.prev_time = time
 
@@ -211,27 +259,38 @@ class GantryNode:
         Process the messages recieved from the CAN node. Store them in state
         """
         
-        pass
+        if not hex(msg.id) in self.ID_TABLE.keys():
+            rospy.logwarn("unknown id: %s with length %s" % (hex(msg.id), msg.dlc))
+            return
+        
+        # rospy.logwarn("received control_x_speed")
 
-    def process(self, msg):
-        """ Takes a Frame message and updates state accordingly
-        """
-        key, can_type = self.ID_TABLE[msg.id]
+        key, can_type = self.ID_TABLE[hex(msg.id)]
+
+
 
         numhex = numhex64()
         for idx in range(msg.dlc):
-            numhex.hex[idx] = ord(msg.data[idx]) # TODO: check this
+            # if msg.dlc == 4:
+            #     print(ord( msg.data[idx]))
+
+            numhex.hex[idx] = ord(msg.data[idx])
+
+        # if msg.dlc == 4:
+        #     print([ord(c) for c in msg.data])
+        #     rospy.loginfo("GAH")
 
         if can_type == 'int32':
-            val = numhex.uint
+            val = numhex.sint
         elif can_type == 'double':
             val = numhex.num
         else:
-            val = numhex.uint != 0
+            val = numhex.sint != 0
         
-        CAN_STATE[key] = val
+        self.CAN_STATE[key] = [numhex.sint, numhex.num]
+        return (key, numhex.sint, numhex.num)
 
-    def send_can_frame(self, name, value):
+    def send_can_frame(self, name, value, publish=True):
         """
         A reasonably generic way to send message to the CAN node that doesnt rot the mind
         """
@@ -248,7 +307,7 @@ class GantryNode:
         
         numhex = numhex64()
         if can_type == 'int32':
-            numhex.uint = value
+            numhex.sint = value
         elif can_type == 'double':
             numhex.num = value
         
@@ -256,7 +315,9 @@ class GantryNode:
             msg.data += chr(numhex.hex[idx])
         
         msg.header.stamp = rospy.get_rostime()
-        self.gantry_pub.publish(msg)
+        if publish: self.gantry_pub.publish(msg)
+
+        return msg
 
 
     def write_velocity(self, velocity):
@@ -279,4 +340,3 @@ if __name__ == '__main__':
     g = GantryNode()
 
     rospy.spin()
-

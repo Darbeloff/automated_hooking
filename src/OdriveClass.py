@@ -39,6 +39,8 @@ Nm2A = 0.00000604
 #There will be additional updates to this driver to make it easier to use for you in the future.
 
 class Odrive:
+    MAX_VEL = 100000
+
     def __init__(self,usb_serial):
         
         self.usb_serials=usb_serial

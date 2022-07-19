@@ -3,15 +3,55 @@
 import numpy as np
 
 
-
 class PIDController:
-    def __init__(self, P, I, D):
-        self.P = P
-        self.I = I
-        self.D = D
+    """A generic (serial) PID Controller
+    (ask quinn for a mini-lecture on the difference between parallel and serial controllers)
+    The derivative controller additionally has a low-pass filter on it - this prevents
+    high-frequency noise from taking over the controller
+    """
+    def __init__(self, Kp, Ki, Kd, tau=0.1, integrator_bounds=(-20, 20)):
+        """Accept and initialize parameters. Save current time
+        Args:
+            Kp, Ki, Kd: coefficients for PID control
+            alpha: controls the low-pass filter. Increase to allow higher frequencies through. Restrict to (0, 1]
+            integrator_bounds: anti-windup limiter on the integrator. Keeps the integrator from blowing up
+        """
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.derivative_filter = LPController(tau)
+
+        self.e = 0
+        self.lag_out_prev = 0
+        self.lead = 0
+        self.lag_i = 0
+
+        self.integrator_bounds = integrator_bounds
 
     def do_control(self, state, target, delta_t):
-        return [0,0]
+        """Return the controller output, given a reference and output signal
+        Args:
+            state: where we are
+            target: where we want to be
+
+        >--[P]----------[+]---[Lead]--->
+               |-[Ki/s ]-|
+        """
+
+        # First Stage of PID Control: Proportional Gain
+        e = val_target - val_actual
+        p_out = e * self.Kp
+
+        # Second Stage: Lag Compensator (integrator)
+        self.lag_i += p_out*delta_t*self.Ki
+        self.lag_i = np.clip(self.lag_i, self.integrator_bounds[0], self.integrator_bounds[1])
+        lag_out = p_out + self.lag_i
+
+        # Third Stage: Lead Compensator (derivative + low-pass filter)
+        self.lead = self.derivative_filter.do_control((lag_out - self.lag_out_prev), delta_t)
+        self.lag_out_prev = lag_out
+        
+        return lag_out + self.lead
 
 class LPController:
     def __init__(self, tau):
