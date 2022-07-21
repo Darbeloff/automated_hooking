@@ -9,8 +9,11 @@ import ctypes
 from threading import Thread
 
 from can_msgs.msg import Frame
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import Pose, Twist, TransformStamped
 from nav_msgs.msg import Odometry
+
+import tf2_ros
+import tf_transformations
 
 from Controls import PIDController, LPController
 from Utils import Vector
@@ -31,7 +34,17 @@ class GantryNode:
     """
     This node interfaces with the ODrive boards and attached encoders, to drive the gantry at either a desired velocity or to a desired position
 
-    Reports gantry position at some frequency
+    Reports gantry position and pendant status at some frequency
+
+    positive x: towards door
+        positive y: towards machine wall
+
+        y   [machine wall]
+        ^  ______
+        | |gantry|  [door]
+        | |______|
+        |-----> x
+
     """
     DATA_LENGTH = {
         'double':8,
@@ -45,7 +58,7 @@ class GantryNode:
     #     id (hex)  data_length
     # ['1'   '0x1'   '8'] < double - control
     # ['2'   '0x2'   '8'] < double - control
-    # [''    '0x4'   '?']
+    # [''    '0x4'   '4']
     # ['16'  '0x10'  '3'] < bool3 - status
     # ['17'  '0x11'  '8'] < double
     # ['18'  '0x12'  '8'] < double
@@ -116,14 +129,14 @@ class GantryNode:
         # 'reset_encoder_2': [0x300, 'bool'],
     }
     ID_TABLE = {}
-
     CAN_STATE = {}
 
     
     RATE = 20 # hz
 
-    def __init__(self):
-        # Publishers
+    def init_publishers(self):
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster()
+
         self.state_pub = rospy.Publisher(
             rospy.get_param("~/gantry_state_topic", "gantry/state"),
             Odometry, queue_size=1)
@@ -133,8 +146,10 @@ class GantryNode:
             rospy.get_param('~/can_sent_messages','/sent_messages'),
             Frame, queue_size=1)
 
+    def init_subscribers(self):
+        self.tf_buffer = tf2_ros.Buffer()
+        tf2_ros.TransformListener(self.tf_buffer)
 
-        # Subscribers
         rospy.Subscriber(
             rospy.get_param("~/can_received_messages", "/received_messages"),
             Frame, self.can_message_callback, queue_size=10)
@@ -145,9 +160,8 @@ class GantryNode:
         rospy.Subscriber(
             rospy.get_param("~/gantry_position_set_topic", "gantry/position_set"),
             Pose, self.set_position_callback, queue_size=10)
-        
-
-
+    
+    def init_state(self):
         # copy NAME_TABLE into ID_TABLE, initialize CAN_STATE
         for key in self.NAME_TABLE.keys():
             id, can_type = self.NAME_TABLE[key]
@@ -167,34 +181,25 @@ class GantryNode:
         
         self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
 
+    def __init__(self):
+        # Publishers
+        self.init_publishers()
 
+        # Subscribers
+        self.init_subscribers()
+        
 
-
-
-        # msg = self.send_can_frame('encoder_ppr_0', 7342, publish=False)
-        # val = self.can_message_callback(msg)
-        # print(val)
-        # quit()
-
-
-
-        def test():
-            tmsg = Twist()
-            tmsg.linear = Vector([4,2,0])
-
-            self.set_velocity_callback(tmsg)
-
-            rospy.sleep(2)
-            tmsg.linear = Vector([-4,-2,0])
-            self.set_velocity_callback(tmsg)
-
-            rospy.sleep(2)
-            tmsg.linear = Vector([0,0,0])
-            self.set_velocity_callback(tmsg)
-
-        # worker = Thread(target=test)
-        # worker.daemon = True
-        # worker.start()
+        rospy.logwarn(NODE_NAME + " is initializing...")
+        # Await lidar distance estimation
+        while self.CAN_STATE['laser_distance_0'] == None or self.CAN_STATE['laser_distance_1'] == None:
+            rospy.sleep(0.1)
+        
+        # Set approximate map -> base_link transform
+        
+        # Later: use limit switches to find precise y coordinate
+        # Much Later: use limit switches to find precise x coordinate
+        # go to home position
+        
 
         rospy.logwarn(NODE_NAME + " is online")
 
@@ -232,14 +237,9 @@ class GantryNode:
 
         self.prev_time = time
 
-
     def set_velocity_callback(self, msg):
         """
         Set the target velocity of the gantry
-
-        positive x: towards door
-        positive y: towards machine wall
-        positive z: up
         """
         
         self.target_velocity = Vector.to_array(msg.linear)[:2]
@@ -253,6 +253,8 @@ class GantryNode:
         """
         self.target_velocity = None
         self.target_position = Vector.to_array(msg.position)[:2]
+        
+        rospy.loginfo("Position set to x: %f rps, y: %f rps", self.target_position[0], self.target_position[1])
 
     def can_message_callback(self, msg):
         """
@@ -273,8 +275,10 @@ class GantryNode:
         for idx in range(msg.dlc):
             # if msg.dlc == 4:
             #     print(ord( msg.data[idx]))
-
-            numhex.hex[idx] = ord(msg.data[idx])
+            numhex.hex[idx] = ord(msg.data[idx]) # big endian
+            # numhex.hex[-idx] = ord(msg.data[idx]) # little endian
+            # numhex.hex[4 + idx] = ord(msg.data[idx]) # big endian offset
+            # numhex.hex[4 - idx] = ord(msg.data[idx]) # little endian offset
 
         # if msg.dlc == 4:
         #     print([ord(c) for c in msg.data])
@@ -319,7 +323,6 @@ class GantryNode:
 
         return msg
 
-
     def write_velocity(self, velocity):
         """
         Send velocity commands to the gantry motors
@@ -327,11 +330,20 @@ class GantryNode:
         self.send_can_frame('control_x_speed', velocity[0])
         self.send_can_frame('control_y_speed', velocity[1])
 
-
     def publish_state(self):
         """
         Report the position and velocity of the gantry, computed from encoder counts
         """
+        msg = TransformStamped()
+        msg.transform.translation.x = 0
+        msg.transform.translation.y = 0
+        msg.transform.translation.z = 0
+        msg.transform.rotation.x = 1
+        msg.transform.rotation.y = 0
+        msg.transform.rotation.z = 0
+        msg.transform.rotation.x = 1
+        self.tf_broadcaster.sendTransform(msg)
+
         pass
 
 if __name__ == '__main__':
