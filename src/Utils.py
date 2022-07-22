@@ -13,3 +13,15 @@ class Vector:
             return np.array([vector.x, vector.y, vector.z])
         except:
             return np.array([vector.x, vector.y])
+
+
+def await_condition(timeout, condition, on_timeout=lambda: 0, sleep_time=0.01):
+        start_time = rospy.get_rostime().to_sec()
+        
+        while rospy.get_rostime().to_sec() - start_time < timeout:
+            if condition():
+                return
+            
+            rospy.sleep(sleep_time)
+
+        on_timeout()
