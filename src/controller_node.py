@@ -8,22 +8,10 @@ import numpy as np
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose, Twist
 
-# from gantry_node import GantryNode
-# from winch_node import WinchNode
+import Utils
+from Utils import Vector
 
-class Vector:
-    def __init__(self, array):
-        self.x = array[0]
-        self.y = array[1]
-        if len(array) > 2:
-            self.z = array[2]
-    
-    @staticmethod
-    def to_array(vector):
-        try:
-            return [vector.x, vector.y, vector.z]
-        except:
-            return [vector.x, vector.y]
+
 
 class HookingController:
     """
@@ -34,6 +22,19 @@ class HookingController:
     def __init__(self):
 
         # Publishers
+        self.init_publishers()
+        
+        # Subscribers
+        self.init_subscribers()
+
+
+        self.init_state()
+        
+        rospy.sleep(1) # delay to allow topics to finish connecting
+        rospy.logwarn(NODE_NAME + " is online")
+        self.do_hooking_simple()
+
+    def init_publishers(self):
         self.gantry_velocity_pub = rospy.Publisher(
             rospy.get_param("~/gantry_velocity_set_topic", "gantry/velocity_set"),
             Twist, queue_size=1)
@@ -47,20 +48,21 @@ class HookingController:
         self.winch_position_pub = rospy.Publisher(
             rospy.get_param("~/winch_position_set_topic", "winch/position_set"),
             Pose, queue_size=1)
-        
 
-        # Subscribers
+    def init_subscribers(self):
         # subscribe to camera, gantry node, winch node, hook node
         rospy.Subscriber(
             rospy.get_param("~/winch_state_topic", "winch/state"),
             JointState, self.winch_state_callback, queue_size=1)
 
-
-        self.winch_effort = [0,0,0]
         
-        rospy.sleep(1) # delay to allow topics to finish connecting
-        rospy.logwarn(NODE_NAME + " is online")
-        self.do_hooking_simple()
+
+    def init_state(self):
+        self.winch_effort = [0,0,0]
+
+        # TODO: should I store winch positions as 3 poses? I could publish commands as just one... no, winch and gantry nodes should stay decoupled at this point
+        self.winch_position = [0,0,0]
+
 
     def do_hooking_simple(self):
         tmsg = Twist()
@@ -68,7 +70,7 @@ class HookingController:
         self.gantry_velocity_pub.publish(tmsg)
         rospy.logwarn("move")
         
-        self.await_condition(20, lambda: abs(self.winch_effort[0]) > 0.8, on_timeout=lambda: rospy.logwarn("timed out"))
+        Utils.await_condition(20, lambda: abs(self.winch_effort[0]) > 0.8, on_timeout=lambda: rospy.logwarn("timed out"))
 
         tmsg.linear = Vector([0,0,0])
         self.gantry_velocity_pub.publish(tmsg)
@@ -121,17 +123,6 @@ class HookingController:
         # retract winch until winch_node reports amperage spike
         # if collision is detected in an acceptable place, return
         # else, disengage, do_hooking again
-
-    def await_condition(self, timeout, condition, on_timeout=lambda: 0):
-        start_time = rospy.get_rostime().to_sec()
-        
-        while rospy.get_rostime().to_sec() - start_time < timeout:
-            if condition():
-                return
-            
-            rospy.sleep(0.0001)
-
-        on_timeout()
         
 
 
