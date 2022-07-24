@@ -1,5 +1,3 @@
-#!/usr/bin/env python2
-
 import numpy as np
 
 
@@ -72,7 +70,6 @@ class LPController:
             raise Exception("Controller requires target state length to match state length")
 
         return state*(1. - delta_t / self.tau) + target*(delta_t / self.tau)
-
 
 class RateLimiter:
     def __init__(self, max_rate):
