@@ -68,6 +68,11 @@ class HookingController:
         self.winch_heights = [0,0,0]
 
     def do_hooking_simple(self):
+        """
+        Simple hooking algorithm: move in a direction until winch reports amperage above a threshold
+
+        Note: OUTDATED
+        """
         tmsg = Twist()
         tmsg.linear = Vector([2,0,0])
         self.gantry_velocity_pub.publish(tmsg)

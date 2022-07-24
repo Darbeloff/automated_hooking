@@ -36,17 +36,30 @@ class Coord:
     A handy class to do coordinate arithmetic with. Usefully converts poses, transforms, and matrices
     """
 
-    def __init__(self, tf):
-        if isinstance(tf, np.ndarray):
+    I = Coord(np.eye(4)) # the identity coordinate
+
+    def __init__(self, *inputs):
+        if len(inputs) == 2:
+            # input is two vectors
+            P = tf_t.translation_matrix( inputs[0] )
+            if len(inputs[1]) == 4:
+                M = tf_t.quaternion_matrix( inputs[1] )
+            else:
+                M = tf_t.euler_matrix( *inputs[1], 'rxyz' )
+            
+            self.T = P.dot(M)
+        elif isinstance(inputs[0], np.ndarray):
+            # input is a matrix
+            # TODO: input is lone position vector
             self.T = tf
-            return
+        else:
+            # input is a message
+            x,q = search_recursive(tf, [['translation','position'],['rotation','orientation']])
 
-        x,q = search_recursive(tf, [['translation','position'],['rotation','orientation']])
-
-        P = tf_t.translation_matrix(Vector.to_array( x ))
-        M = tf_t.quaternion_matrix( Vector.to_array( q ) )
-        
-        self.T = P.dot(M)
+            P = tf_t.translation_matrix(Vector.to_array( x ))
+            M = tf_t.quaternion_matrix( Vector.to_array( q ))
+            
+            self.T = P.dot(M)
 
     def to_tf(self):
         tf = Transform()

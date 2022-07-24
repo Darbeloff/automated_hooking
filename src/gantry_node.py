@@ -139,7 +139,7 @@ class GantryNode:
 
         self.state_pub = rospy.Publisher(
             rospy.get_param("~/gantry_state_topic", "gantry/state"),
-            Odometry, queue_size=1)
+            JointState, queue_size=1)
 
             # received by the CAN node on the gantry (which in turn speaks to the CAN arduino over serial via dark and unknowable magics)
         self.gantry_pub = rospy.Publisher(
@@ -155,11 +155,8 @@ class GantryNode:
             Frame, self.can_message_callback, queue_size=10)
 
         rospy.Subscriber(
-            rospy.get_param("~/gantry_velocity_set_topic", "gantry/velocity_set"),
-            Twist, self.set_velocity_callback, queue_size=10)
-        rospy.Subscriber(
-            rospy.get_param("~/gantry_position_set_topic", "gantry/position_set"),
-            Pose, self.set_position_callback, queue_size=10)
+            rospy.get_param("~/gantry_control_topic", "gantry/control"),
+            JointState, self.control_callback, queue_size=1)
     
     def init_state(self):
         # copy NAME_TABLE into ID_TABLE, initialize CAN_STATE
@@ -237,24 +234,21 @@ class GantryNode:
 
         self.prev_time = time
 
-    def set_velocity_callback(self, msg):
+    def control_callback(self, msg):
         """
         Set the target velocity of the gantry
         """
         
-        self.target_velocity = Vector.to_array(msg.linear)[:2]
-        self.target_position = None
+        self.target_position = Vector.to_array(msg.position)
+        self.target_velocity = Vector.to_array(msg.velocity)
 
-        rospy.loginfo("Velocity set to x: %f rps, y: %f rps", self.target_velocity[0], self.target_velocity[1])
+        if not self.target_position is None:
+            self.target_position = self.target_position[:2]
+            rospy.loginfo("Position set to x: %f rps, y: %f rps", self.target_position)
+        else:
+            self.target_velocity = self.target_velocity[:2]
+            rospy.loginfo("Velocity set to x: %f rps, y: %f rps", *self.target_velocity)
         
-    def set_position_callback(self, msg):
-        """
-        Set the target position of the gantry
-        """
-        self.target_velocity = None
-        self.target_position = Vector.to_array(msg.position)[:2]
-        
-        rospy.loginfo("Position set to x: %f rps, y: %f rps", self.target_position[0], self.target_position[1])
 
     def can_message_callback(self, msg):
         """
@@ -334,17 +328,21 @@ class GantryNode:
         """
         Report the position and velocity of the gantry, computed from encoder counts
         """
+        coord = Coord(self.position, [0,0,0,1])
+        
         msg = TransformStamped()
-        msg.transform.translation.x = 0
-        msg.transform.translation.y = 0
-        msg.transform.translation.z = 0
-        msg.transform.rotation.x = 1
-        msg.transform.rotation.y = 0
-        msg.transform.rotation.z = 0
-        msg.transform.rotation.x = 1
+        msg.header.stamp = rospy.get_rostime()
+        msg.header.frame_id = 'map'
+        msg.child_frame_id = 'base_link'
+        msg.transform = coord.to_tf()
+
         self.tf_broadcaster.sendTransform(msg)
 
-        pass
+        msg = JointState()
+        msg.position = Vector(self.position)
+        msg.velocity = Vector(self.velocity)
+
+        self.state_pub.publish(msg)
 
 if __name__ == '__main__':
     # init ros node
