@@ -113,7 +113,7 @@ class HookingController:
         rospy.sleep(0.1)
 
         T_base = self.get_T('map', 'base_link')
-        T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link')
+        T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link') # TODO: add offset here, instead of in target description
         
         # where we want the base to be
         T_base_target = T_base + T_diff
@@ -123,12 +123,12 @@ class HookingController:
         self.control_gantry_position(T_base_target, wait=True)
 
         # Lower hook appropriately
-        height = T_diff.get_translation()[2]
+        height = T_diff.get_translation()[2] - 0.1 # go 10cm below the target point
         self.control_winch_heights([height, None, None], wait=True)
         
         # Move in direction
         T_target = self.get_T('map', 'target_zone_1_link')
-        move_direction = (T_target.T[1,:3]).flatten() # the x column of the rotation matrix
+        move_direction = (T_target.T[:3,0]).flatten() # the x column of the rotation matrix
         move_speed = 0.2 
         self.control_gantry_velocity( move_direction * move_speed )
         
@@ -143,6 +143,27 @@ class HookingController:
 
         # Done
         rospy.logwarn("Done")
+
+    def do_hooking_V3(self):
+        # map target links to winches in an un-tangle-y way
+        pairs = [(0,0),(1,1),(2,2)]
+        
+        # for winch/link pair
+        for link,winch in pairs:
+            # do_hooking_V2 on link and winch
+            # command winch to maintain a certain amperage
+            effort = [None]*3
+            effort[winch] = 
+            self.control_winch_effort( effort )
+
+        # move to above center of mass
+        T_target = self.get_T('map', 'target_zone_1_link')
+        self.control_gantry_position(T_target)
+
+        # raise all winches
+        self.control_winch_position([-0.5,-0.5,-0.5])
+        
+
 
     def do_hooking(self):
         # do CV to get peg coords
@@ -211,17 +232,65 @@ class HookingController:
         msg.name = [] # will be '0','1','2' if all heights are specified
         msg.position = []
 
-        for i in range(len(heights)):
+        for i in range(len(position)):
             if not position[i] is None:
                 msg.name.append(str(i))
                 msg.position.append(position[i])
 
         self.winch_control_pub.publish(msg)
 
+        # if wait:
+        #     Utils.await_condition(
+        #         lambda: np.linalg.norm(self.winch_position - position) < error
+        #     )
+
+    def control_winch_position(self, position, winch, wait=False, error=0.05):
+        msg = JointState()
+        msg.name = [str(winch)]
+        msg.effort = [effort]
+        self.winch_control_pub.publish(msg)
+
         if wait:
             Utils.await_condition(
-                lambda: np.linalg.norm(self.winch_position - position) < error
+                lambda: abs(self.winch_position[winch] - position) < error
             )
+
+
+    def control_winch_velocity(self, velocity):
+        msg = JointState()
+        msg.name = [] # will be '0','1','2' if all heights are specified
+        msg.velocity = []
+
+        for i in range(len(velocity)):
+            if not velocity[i] is None:
+                msg.name.append(str(i))
+                msg.velocity.append(velocity[i])
+        self.winch_control_pub.publish(msg)
+
+    def control_winch_velocity(self, velocity, winch):
+        msg = JointState()
+        msg.name = [str(winch)]
+        msg.velocity = [velocty]
+        self.winch_control_pub.publish(msg)
+    
+
+    def control_winch_effort(self, effort):
+        msg = JointState()
+        msg.name = [] # will be '0','1','2' if all heights are specified
+        msg.effort = []
+
+        for i in range(len(effort)):
+            if not effort[i] is None:
+                msg.name.append(str(i))
+                msg.effort.append(effort[i])
+
+        self.winch_control_pub.publish(msg)
+    
+    def control_winch_effort(self, effort, winch):
+        msg = JointState()
+        msg.name = [str(winch)]
+        msg.effort = [effort]
+        self.winch_control_pub.publish(msg)
 
 if __name__ == '__main__':
     # init ros node
