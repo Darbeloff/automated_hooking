@@ -10,13 +10,15 @@ from threading import Thread
 
 from can_msgs.msg import Frame
 from geometry_msgs.msg import Pose, Twist, TransformStamped
+from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
 import tf2_ros
 # import tf_conversions
 
 from Controls import PIDController, LPController
-from Utils import Vector
+from Utils import Vector, Coord, LogFile
+import Utils
 
 class numhex64(ctypes.Union):
     _fields_ = [("num", ctypes.c_double),
@@ -51,7 +53,7 @@ class GantryNode:
     RADS_PER_M = 37. # found experimentally
 
 
-    OFFSET = [0,0] # in meters
+    OFFSET = np.array([0.,0.]) # in meters
 
     # format:        x bounds, y bounds
     POSITION_BOUNDS = ((0,2), (-1,1))
@@ -137,7 +139,6 @@ class GantryNode:
     RATE = 20 # hz
 
     def __init__(self):
-        self.init_state()
         
         # Publishers
         self.init_publishers()
@@ -145,17 +146,9 @@ class GantryNode:
         # Subscribers
         self.init_subscribers()
 
-
         rospy.logwarn(NODE_NAME + " is initializing...")
-        # Await lidar distance estimation
-        while self.CAN_STATE['laser_distance_0'] == None or self.CAN_STATE['laser_distance_1'] == None:
-            rospy.sleep(0.1)
-        
-        # Set approximate map -> base_link transform
-        
-        # Later: use limit switches to find precise y coordinate
-        # Much Later: use limit switches to find precise x coordinate
-        # go to home position
+        self.init_state()
+
         
 
         rospy.logwarn(NODE_NAME + " is online")
@@ -200,13 +193,30 @@ class GantryNode:
         
         
         self.velocity_controller = LPController(0.1)
-        self.position_controller = PIDController(1.,0.001,0.001)
+        self.position_controller = PIDController(1.,0.,0., integrator_bounds=(-0.15,0.15))
 
         self.target_velocity = [0,0]
         self.target_position = None
 
         self.velocity = [0,0]
-        self.position = [0,0] # TODO: Get this from encoder data
+        self.position = [0,0]
+
+        
+        
+
+        # Await CAN updates
+        Utils.await_condition(lambda: (np.array(self.CAN_STATE.values()) == None).sum() <= 2)
+        # TODO: make this expression more robust; currently relies on specific number of CAN send messages
+        # TODO: specifiy exactly which messages to wait for
+
+        self.update_state() # update state
+        
+        # Set approximate map -> base_link transform
+        self.set_current_position([np.mean([self.CAN_STATE['laser_distance_0'],
+                                            self.CAN_STATE['laser_distance_1']])/1000., 0])
+        # Later: use limit switches to find precise y coordinate
+        # Much Later: use limit switches to find precise x coordinate
+        # go to home position
         
     def loop_callback(self):
         """
@@ -221,40 +231,53 @@ class GantryNode:
         else:
             velocity_control = self.position_controller.do_control(self.position, self.target_position, delta_t)
 
+            # rospy.loginfo('\n')
+            # rospy.logwarn("error:")
+            # rospy.loginfo( self.target_position - self.position)
+            # rospy.logwarn("control effort:")
+            # rospy.loginfo( velocity_control)
+            
+
         self.write_velocity(velocity_control)
         # self.write_velocity(self.target_velocity)
 
+        self.update_state()
+        
+        self.publish_state()
+
+    def update_state(self):
         x_speed = np.mean([ self.CAN_STATE['encoder_speed_0'],
                             self.CAN_STATE['encoder_speed_1'] ])  * self.M_PER_COUNT
         x_pos = np.mean([ self.CAN_STATE['encoder_abs_0'],
-                            self.CAN_STATE['encoder_abs_1'] ]) * self.M_PER_COUNT + self.OFFSET[1]
+                            self.CAN_STATE['encoder_abs_1'] ]) * self.M_PER_COUNT
         y_speed = self.CAN_STATE['encoder_speed_2'] * self.M_PER_COUNT
-        y_pos = self.CAN_STATE['encoder_abs_2'] * self.M_PER_COUNT + self.OFFSET[1]
+        y_pos = self.CAN_STATE['encoder_abs_2'] * self.M_PER_COUNT
 
 
         # self.velocity = velocity_control # TODO: get this from sensor feedback
-        self.velocity = [x_speed, y_speed]
-        self.position = [x_pos, y_pos]
+        self.velocity = np.array([x_speed, y_speed])
+        self.position = np.array([x_pos, y_pos]) + self.OFFSET
 
-        self.publish_state()
-
-        rospy.loginfo( x_speed )
-
-
+    def set_current_position(self, position):
+        diff = np.array(position) - self.position
+        self.OFFSET += diff
 
     def control_callback(self, msg):
         """
         Set the target velocity of the gantry
         """
         
-        self.target_position = Vector.to_array(msg.position)
-        self.target_velocity = Vector.to_array(msg.velocity)
+        self.target_position = np.array(msg.position) if len(msg.position) == 2 else None
+        self.target_velocity = np.array(msg.velocity) if len(msg.velocity) == 2 else None
 
+        self.position_controller.reset_state()
+        # rospy.loginfo(self.target_position)
+        # rospy.loginfo(self.target_velocity)
+
+        # TODO: cleanse inputs, stop if malformed
         if not self.target_position is None:
-            self.target_position = self.target_position[:2]
-            rospy.loginfo("Position set to x: %f rps, y: %f rps", self.target_position)
+            rospy.loginfo("Position set to x: %f rps, y: %f rps", *self.target_position)
         else:
-            self.target_velocity = self.target_velocity[:2]
             rospy.loginfo("Velocity set to x: %f rps, y: %f rps", *self.target_velocity)
         
     def can_message_callback(self, msg):
@@ -328,10 +351,12 @@ class GantryNode:
         """
         Send velocity commands to the gantry motors
         """
+        
         velocity = np.array(velocity) * self.RADS_PER_M
 
         self.send_can_frame('control_x_speed', velocity[0])
         self.send_can_frame('control_y_speed', velocity[1])
+
 
     def publish_state(self):
         """
@@ -348,8 +373,9 @@ class GantryNode:
         self.tf_broadcaster.sendTransform(msg)
 
         msg = JointState()
-        msg.position = Vector(self.position)
-        msg.velocity = Vector(self.velocity)
+        msg.name = ['x', 'y']
+        msg.position = self.position
+        msg.velocity = self.velocity
 
         self.state_pub.publish(msg)
 
