@@ -90,30 +90,14 @@ class HookingController:
         # Get position of table_tag in world space
         # Get position of target position in world space
         # Get movement direction from table_tag
-        # TODO: define target_point wrt qr_code in target_description
-        # tf_map_target = self.tf_buffer.lookup_transform('map', 'target_point', rospy.get_rostime())
-        # while not rospy.is_shutdown():
-        tmsg = TransformStamped()
-        tmsg.header.stamp = rospy.get_rostime()
-        tmsg.header.frame_id = 'map'
-        tmsg.child_frame_id = 'base_link'
-        tmsg.transform.translation = Vector([1,2,3])
-        tmsg.transform.rotation = Vector([0,0,0,1])
-        self.tf_static_broadcaster.sendTransform(tmsg)
-        
-        tmsg = TransformStamped()
-        tmsg.header.stamp = rospy.get_rostime()
-        tmsg.header.frame_id = 'map'
-        tmsg.child_frame_id = 'target_zone_1_link'
-        tmsg.transform.translation = Vector([1,2,3])
-        tmsg.transform.rotation = Vector([0,0,0,1])
 
-        self.tf_static_broadcaster.sendTransform(tmsg)
+        
 
         rospy.sleep(0.1)
 
         T_base = self.get_T('map', 'base_link')
-        T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link') # TODO: add offset here, instead of in target description
+        T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_link') # TODO: add offset here, instead of in target description
+        # T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link') # TODO: add offset here, instead of in target description
         
         # where we want the base to be
         T_base_target = T_base + T_diff
@@ -121,11 +105,13 @@ class HookingController:
         # Move to target position in world space
         # Await arrival in world space
         self.control_gantry_position(T_base_target, wait=True)
+        quit()
 
         # Lower hook appropriately
         height = T_diff.get_translation()[2] - 0.1 # go 10cm below the target point
-        self.control_winch_heights([height, None, None], wait=True)
+        self.control_winch_position(height,0, wait=True)
         
+
         # Move in direction
         T_target = self.get_T('map', 'target_zone_1_link')
         move_direction = (T_target.T[:3,0]).flatten() # the x column of the rotation matrix
@@ -153,7 +139,7 @@ class HookingController:
             # do_hooking_V2 on link and winch
             # command winch to maintain a certain amperage
             effort = [None]*3
-            effort[winch] = 
+            effort[winch] = 0.8
             self.control_winch_effort( effort )
 
         # move to above center of mass
@@ -199,7 +185,7 @@ class HookingController:
         """
         Returns the transform from the from_frame to the to_frame as a handy Coord object
         """
-        return Coord( self.tf_buffer.lookup_transform(from_frame,to_frame, rospy.get_rostime()) )
+        return Coord( self.tf_buffer.lookup_transform(from_frame,to_frame, rospy.Time(0)) )
 
     def winch_state_callback(self, msg):
         self.winch_effort = np.array(msg.effort)
@@ -218,13 +204,13 @@ class HookingController:
         msg = JointState()
 
         msg.name = ['x','y']
-        msg.position = coord.get_translation[:2]
+        msg.position = coord.get_translation()[:2]
 
         self.gantry_control_pub.publish(msg)
 
         if wait:
             Utils.await_condition(
-                lambda: abs(coord - self.get_T('map', 'to_frame')) < error
+                lambda: abs(coord - self.get_T('map', 'base_link')) < error
             )
 
     def control_winch_position(self, position, wait=False, error=0.05):
