@@ -24,6 +24,8 @@ class WinchNode:
     
     COUNTS_PER_M = -5*400000 / 1.875
     M_PER_COUNT = 1./COUNTS_PER_M
+    # TODO: Allow saving offsets for re-zeroing
+    
     POSITION_BOUNDS = (-1.7, 0.025)
     
     RATE = 20
@@ -67,7 +69,6 @@ class WinchNode:
         self.velocity = [0,0,0]
         self.current = [0,0,0]
 
-        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
 
         # def test():
 
@@ -90,6 +91,7 @@ class WinchNode:
         
         rospy.logwarn(NODE_NAME + " is online")
         rate = rospy.Rate(self.RATE)
+        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
         while not rospy.is_shutdown():
             self.loop_callback()
             rate.sleep()
@@ -100,6 +102,7 @@ class WinchNode:
         """
         time = rospy.get_rostime().to_sec()
         delta_t = time - self.prev_time
+        self.prev_time = time
 
         if self.target_position is None:
             self.write_velocity()
@@ -145,7 +148,6 @@ class WinchNode:
         
         self.publish_state()
 
-        self.prev_time = time
 
     def set_velocity_callback(self, msg):
         """

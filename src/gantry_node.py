@@ -13,7 +13,7 @@ from geometry_msgs.msg import Pose, Twist, TransformStamped
 from nav_msgs.msg import Odometry
 
 import tf2_ros
-import tf_transformations
+# import tf_conversions
 
 from Controls import PIDController, LPController
 from Utils import Vector
@@ -46,6 +46,16 @@ class GantryNode:
         |-----> x
 
     """
+    COUNTS_PER_M = 5530. # found experimentally
+    M_PER_COUNT = 1./COUNTS_PER_M
+    RADS_PER_M = 37. # found experimentally
+
+
+    OFFSET = [0,0] # in meters
+
+    # format:        x bounds, y bounds
+    POSITION_BOUNDS = ((0,2), (-1,1))
+
     DATA_LENGTH = {
         'double':8,
         'int32':4,
@@ -67,13 +77,6 @@ class GantryNode:
     # ['33'  '0x21'  '8'] < double
     # ['257' '0x101' '4'] < int32
     # ['258' '0x102' '4'] < int32
-# baffling
-# 1074790400 when moved in x-
-# 3222274048 when moved in x+
-
-# 1074266112 when moved in y+
-# 3221749760 when moved in y-
-
     # ['259' '0x103' '4'] < int32
     # ['260' '0x104' '4'] < int32
     # ['261' '0x105' '4'] < int32
@@ -105,11 +108,10 @@ class GantryNode:
         # mm
         'laser_distance_0': [0x101, 'int32'],
         'laser_distance_1': [0x111, 'int32'],
-        # 'laser_distance_2': [0x121, 'int32'], # no laser on the a axis
 
         # Counts, counts/sec (2048 counts = 1rev = 300mm)
         'encoder_ppr_0': [0x102, 'int32'],
-        'encoder_inc_0': [0x103, 'int32'], # overflows at 4294967295
+        'encoder_inc_0': [0x103, 'int32'],
         'encoder_abs_0': [0x104, 'int32'],
         'encoder_speed_0': [0x105, 'int32'],
         
@@ -133,6 +135,36 @@ class GantryNode:
 
     
     RATE = 20 # hz
+
+    def __init__(self):
+        self.init_state()
+        
+        # Publishers
+        self.init_publishers()
+
+        # Subscribers
+        self.init_subscribers()
+
+
+        rospy.logwarn(NODE_NAME + " is initializing...")
+        # Await lidar distance estimation
+        while self.CAN_STATE['laser_distance_0'] == None or self.CAN_STATE['laser_distance_1'] == None:
+            rospy.sleep(0.1)
+        
+        # Set approximate map -> base_link transform
+        
+        # Later: use limit switches to find precise y coordinate
+        # Much Later: use limit switches to find precise x coordinate
+        # go to home position
+        
+
+        rospy.logwarn(NODE_NAME + " is online")
+
+        rate = rospy.Rate(self.RATE)
+        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
+        while not rospy.is_shutdown():
+            self.loop_callback()
+            rate.sleep()
 
     def init_publishers(self):
         self.tf_broadcaster = tf2_ros.TransformBroadcaster()
@@ -179,63 +211,39 @@ class GantryNode:
         self.velocity = [0,0]
         self.position = [0,0] # TODO: Get this from encoder data
         
-        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
-
-    def __init__(self):
-        # Publishers
-        self.init_publishers()
-
-        # Subscribers
-        self.init_subscribers()
-        
-
-        rospy.logwarn(NODE_NAME + " is initializing...")
-        # Await lidar distance estimation
-        while self.CAN_STATE['laser_distance_0'] == None or self.CAN_STATE['laser_distance_1'] == None:
-            rospy.sleep(0.1)
-        
-        # Set approximate map -> base_link transform
-        
-        # Later: use limit switches to find precise y coordinate
-        # Much Later: use limit switches to find precise x coordinate
-        # go to home position
-        
-
-        rospy.logwarn(NODE_NAME + " is online")
-
-        rate = rospy.Rate(self.RATE)
-        while not rospy.is_shutdown():
-            self.loop_callback()
-            rate.sleep()
-
     def loop_callback(self):
         """
         Write velocity, do position control, and publish any updates
         """
         time = rospy.get_rostime().to_sec()
         delta_t = time - self.prev_time
+        self.prev_time = time
         
-        if self.target_velocity != None:
+        if not self.target_velocity is None:
             velocity_control = self.velocity_controller.do_control(self.velocity, self.target_velocity, delta_t)
         else:
             velocity_control = self.position_controller.do_control(self.position, self.target_position, delta_t)
 
         self.write_velocity(velocity_control)
-        # TODO: figure out unit conversions
-        x_speed = self.CAN_STATE['x_axis_actual_control_speed_0']
-        y_speed = self.CAN_STATE['y_axis_actual_control_speed']
+        # self.write_velocity(self.target_velocity)
 
-        self.velocity = velocity_control # TODO: get this from sensor feedback
-        self.position = [0,0]
+        x_speed = np.mean([ self.CAN_STATE['encoder_speed_0'],
+                            self.CAN_STATE['encoder_speed_1'] ])  * self.M_PER_COUNT
+        x_pos = np.mean([ self.CAN_STATE['encoder_abs_0'],
+                            self.CAN_STATE['encoder_abs_1'] ]) * self.M_PER_COUNT + self.OFFSET[1]
+        y_speed = self.CAN_STATE['encoder_speed_2'] * self.M_PER_COUNT
+        y_pos = self.CAN_STATE['encoder_abs_2'] * self.M_PER_COUNT + self.OFFSET[1]
+
+
+        # self.velocity = velocity_control # TODO: get this from sensor feedback
+        self.velocity = [x_speed, y_speed]
+        self.position = [x_pos, y_pos]
 
         self.publish_state()
 
+        rospy.loginfo( x_speed )
 
-        if self.CAN_STATE['encoder_speed_0'] != None:
-            val = self.CAN_STATE['encoder_speed_0']
-            rospy.loginfo("encoder info: %s" % val)
 
-        self.prev_time = time
 
     def set_velocity_callback(self, msg):
         """
@@ -255,7 +263,7 @@ class GantryNode:
         self.target_position = Vector.to_array(msg.position)[:2]
         
         rospy.loginfo("Position set to x: %f rps, y: %f rps", self.target_position[0], self.target_position[1])
-
+        
     def can_message_callback(self, msg):
         """
         Process the messages recieved from the CAN node. Store them in state
@@ -265,24 +273,16 @@ class GantryNode:
             rospy.logwarn("unknown id: %s with length %s" % (hex(msg.id), msg.dlc))
             return
         
-        # rospy.logwarn("received control_x_speed")
-
         key, can_type = self.ID_TABLE[hex(msg.id)]
 
 
-
-        numhex = numhex64()
+        if can_type == 'double':
+            numhex = numhex64()
+        else:
+            numhex = numhex32()
+        
         for idx in range(msg.dlc):
-            # if msg.dlc == 4:
-            #     print(ord( msg.data[idx]))
-            numhex.hex[idx] = ord(msg.data[idx]) # big endian
-            # numhex.hex[-idx] = ord(msg.data[idx]) # little endian
-            # numhex.hex[4 + idx] = ord(msg.data[idx]) # big endian offset
-            # numhex.hex[4 - idx] = ord(msg.data[idx]) # little endian offset
-
-        # if msg.dlc == 4:
-        #     print([ord(c) for c in msg.data])
-        #     rospy.loginfo("GAH")
+            numhex.hex[idx] = ord(msg.data[idx])
 
         if can_type == 'int32':
             val = numhex.sint
@@ -291,7 +291,7 @@ class GantryNode:
         else:
             val = numhex.sint != 0
         
-        self.CAN_STATE[key] = [numhex.sint, numhex.num]
+        self.CAN_STATE[key] = val
         return (key, numhex.sint, numhex.num)
 
     def send_can_frame(self, name, value, publish=True):
@@ -309,11 +309,19 @@ class GantryNode:
         msg.id = id
         msg.data = ""
         
-        numhex = numhex64()
         if can_type == 'int32':
+            numhex = numhex32()
             numhex.sint = value
         elif can_type == 'double':
+            numhex = numhex64()
             numhex.num = value
+        else:
+            rospy.logwarn("Unknown type to send: " + can_type)
+            return
+        # elif can_type == 'bool':
+        #     numhex = numhex64()
+        #     for idx in range(8):
+        #         numhex.hex[idx] = 0xff
         
         for idx in range(length):
             msg.data += chr(numhex.hex[idx])
@@ -327,6 +335,8 @@ class GantryNode:
         """
         Send velocity commands to the gantry motors
         """
+        velocity = np.array(velocity) * self.RADS_PER_M
+
         self.send_can_frame('control_x_speed', velocity[0])
         self.send_can_frame('control_y_speed', velocity[1])
 
@@ -342,9 +352,7 @@ class GantryNode:
         msg.transform.rotation.y = 0
         msg.transform.rotation.z = 0
         msg.transform.rotation.x = 1
-        self.tf_broadcaster.sendTransform(msg)
-
-        pass
+        # self.tf_broadcaster.sendTransform(msg)
 
 if __name__ == '__main__':
     # init ros node
