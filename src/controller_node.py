@@ -37,13 +37,10 @@ class HookingController:
         self.do_hooking_V2()
 
     def init_publishers(self):
-        self.gantry_velocity_pub = rospy.Publisher(
-            rospy.get_param("~/gantry_velocity_set_topic", "gantry/velocity_set"),
-            Twist, queue_size=1)
-        self.gantry_position_pub = rospy.Publisher(
-            rospy.get_param("~/gantry_position_set_topic", "gantry/position_set"),
-            Pose, queue_size=10)
-        self.winch_controller_pub = rospy.Publisher(
+        self.gantry_control_pub = rospy.Publisher(
+            rospy.get_param("~/gantry_control_topic", "gantry/control"),
+            JointState, queue_size=1)
+        self.winch_control_pub = rospy.Publisher(
             rospy.get_param("~/winch_control_topic", "winch/control"),
             JointState, queue_size=1)
         
@@ -111,9 +108,6 @@ class HookingController:
         tmsg.transform.translation = Vector([1,2,3])
         tmsg.transform.rotation = Vector([0,0,0,1])
 
-        # print(tmsg.transform.rotation['w'])
-        # quit()
-
         self.tf_static_broadcaster.sendTransform(tmsg)
 
         rospy.sleep(0.1)
@@ -125,15 +119,30 @@ class HookingController:
         T_base_target = T_base + T_diff
         
         # Move to target position in world space
-
         # Await arrival in world space
-        # Lower hook appropriately
-        # Move in direction
-        # Await amperage trigger
-        # Stop moving
-        # Done
+        self.control_gantry_position(T_base_target, wait=True)
 
-        pass
+        # Lower hook appropriately
+        height = T_diff.get_translation()[2]
+        self.control_winch_heights([height, None, None], wait=True)
+        
+        # Move in direction
+        T_target = self.get_T('map', 'target_zone_1_link')
+        move_direction = (T_target.T[1,:3]).flatten() # the x column of the rotation matrix
+        move_speed = 0.2 
+        self.control_gantry_velocity( move_direction * move_speed )
+        
+        # Await amperage trigger
+        Utils.await_condition(
+            lambda: abs(self.winch_effort[0]) > 0.8,
+            timeout=20,
+            on_timeout=lambda: rospy.logwarn("Timed Out"))
+
+        # Stop moving
+        self.control_gantry_velocity([0,0,0])
+
+        # Done
+        rospy.logwarn("Done")
 
     def do_hooking(self):
         # do CV to get peg coords
@@ -163,8 +172,7 @@ class HookingController:
         # move gantry above peg coords
         # retract winch until winch_node reports amperage spike
         # if collision is detected in an acceptable place, return
-        # else, disengage, do_hooking again
-        
+        # else, disengage, do_hooking again    
 
     def get_T(self, from_frame, to_frame):
         """
@@ -174,6 +182,46 @@ class HookingController:
 
     def winch_state_callback(self, msg):
         self.winch_effort = np.array(msg.effort)
+        self.winch_position = np.array(msg.position)
+        self.winch_velocity = np.array(msg.velocity)
+
+    def control_gantry_velocity(self, velocity):
+        msg = JointState()
+
+        msg.name = ['x','y']
+        msg.velocity = velocity
+
+        self.gantry_control_pub.publish(msg)
+
+    def control_gantry_position(self, coord, wait=False, error=0.05):
+        msg = JointState()
+
+        msg.name = ['x','y']
+        msg.position = coord.get_translation[:2]
+
+        self.gantry_control_pub.publish(msg)
+
+        if wait:
+            Utils.await_condition(
+                lambda: abs(coord - self.get_T('map', 'to_frame')) < error
+            )
+
+    def control_winch_position(self, position, wait=False, error=0.05):
+        msg = JointState()
+        msg.name = [] # will be '0','1','2' if all heights are specified
+        msg.position = []
+
+        for i in range(len(heights)):
+            if not position[i] is None:
+                msg.name.append(str(i))
+                msg.position.append(position[i])
+
+        self.winch_control_pub.publish(msg)
+
+        if wait:
+            Utils.await_condition(
+                lambda: np.linalg.norm(self.winch_position - position) < error
+            )
 
 if __name__ == '__main__':
     # init ros node

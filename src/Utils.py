@@ -79,6 +79,10 @@ class Coord:
         
         return pose
 
+    def get_translation(self):
+        _,_,_,x,_ = tf_t.decompose_matrix(self.T)
+        return x
+
     def __neg__(self):
         return Coord( numpy.linalg.inv(self.T) )
 
@@ -101,6 +105,9 @@ class Coord:
         self.T = (self-other).T
     def __idiv__(self,other):
         self -= other
+
+    def __abs__(self,other):
+        return np.linalg.norm(self.get_translation())
 
     def __repr__(self):
         return self.T.__str__()
