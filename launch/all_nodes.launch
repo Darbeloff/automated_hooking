@@ -9,6 +9,5 @@
     <include file='$(find automated_hooking)/launch/gantry_node.launch'/>
 
     <!-- Description files -->
-    <include file='$(find automated_hooking)/launch/target_description.launch'/>
-    <include file='$(find gantry_description)/launch/description.launch'/>
+    <include file='$(find automated_hooking)/launch/system_description.launch'/>
 </launch>
