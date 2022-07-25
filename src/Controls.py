@@ -1,5 +1,6 @@
-import numpy as np
+# coding=utf-8
 
+import numpy as np
 
 class PIDController:
     """A generic (serial) PID Controller
@@ -19,13 +20,17 @@ class PIDController:
         self.Kd = Kd
         self.derivative_filter = LPController(tau)
         self.coupled = coupled
-
-        self.e = 0
-        self.lag_out_prev = 0
-        self.lead = 0
-        self.lag_i = 0
-
         self.integrator_bounds = integrator_bounds
+
+        self.reset_state()
+
+
+    def reset_state(self):
+        self.e = 0.
+        self.lag_out_prev = 0.
+        self.lead_derivative = 0.
+        self.lead = 0.
+        self.lag_i = 0.
 
     def do_control(self, state, target, delta_t):
         """Return the controller output, given a reference and output signal
@@ -47,16 +52,21 @@ class PIDController:
         e = target - state
         p_out = e * self.Kp
 
+
         # Second Stage: Lag Compensator (integrator)
         self.lag_i += p_out*delta_t*self.Ki
         self.lag_i = np.clip(self.lag_i, self.integrator_bounds[0], self.integrator_bounds[1])
         lag_out = p_out + self.lag_i
 
-        # Third Stage: Lead Compensator (derivative + low-pass filter)
-        self.lead_out = lag_out + self.derivative_filter.do_control((lag_out - self.lag_out_prev), delta_t)
-        self.lag_out_prev = lag_out
         
-        return self.lead_out
+        # Third Stage: Lead Compensator (derivative + low-pass filter)
+        self.lead_derivative = self.derivative_filter.do_control(self.lead_derivative, (lag_out - self.lag_out_prev), delta_t)
+
+        self.lag_out_prev = lag_out
+
+        self.lead_out = lag_out + self.lead_derivative*self.Kd
+        
+        return np.clip(self.lead_out, *self.integrator_bounds)
 
 class LPController:
     def __init__(self, tau):
@@ -66,8 +76,12 @@ class LPController:
         state = np.array(state)
         target = np.array(target)
 
-        if len(target) != len(state):
-            raise Exception("Controller requires target state length to match state length")
+        try:
+            if len(target) != len(state):
+                raise Exception("Controller requires target state length to match state length")
+        except:
+            # not iterable, everything is fine
+            pass
 
         return state*(1. - delta_t / self.tau) + target*(delta_t / self.tau)
 
