@@ -32,11 +32,28 @@ class WinchNode:
     def __init__(self):
 
         # Publishers
+        self.init_publishers()
+
+        # Subscribers
+        self.init_subscribers()
+
+        # Initialize Odrive interfaces
+        self.init_state()
+
+
+        rospy.logwarn(NODE_NAME + " is online")
+        rate = rospy.Rate(self.RATE)
+        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
+        while not rospy.is_shutdown():
+            self.loop_callback()
+            rate.sleep()
+
+    def init_publishers(self):
         self.state_pub = rospy.Publisher(
             rospy.get_param("~/winch_state_topic", "winch/state"),
             JointState, queue_size=10)
 
-        # Subscribers
+    def init_subscribers(self):
         rospy.Subscriber(
             rospy.get_param("~/winch_control_topic", "winch/control"),
             JointState, self.control_callback, queue_size=1)
@@ -44,7 +61,7 @@ class WinchNode:
             rospy.get_param("~/winch_pid_set_topic", "winch/pid_set"),
             Vector3, self.set_pid_callback, queue_size=1)
 
-        # Initialize Odrive interfaces
+    def init_state(self):
         self.odrv0 = Odrive('20673881304E') # Only has 1 winch
         self.odrv1 = Odrive('2087377E3548') # Has 2 winches
 
@@ -57,14 +74,6 @@ class WinchNode:
         self.velocity = [0,0,0]
         self.raw_current = [0,0,0]
         self.current = [0,0,0]
-
-        
-        rospy.logwarn(NODE_NAME + " is online")
-        rate = rospy.Rate(self.RATE)
-        self.prev_time = rospy.get_rostime().to_sec() - 1.0/self.RATE
-        while not rospy.is_shutdown():
-            self.loop_callback()
-            rate.sleep()
 
     def loop_callback(self):
         """
