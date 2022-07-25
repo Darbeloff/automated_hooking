@@ -1,0 +1,14 @@
+<launch>
+    <machine name='gantry' ip='192.168.137.2' user='pi'/>
+    <machine name='xavier' ip='192.168.137.12' user='jetson'/>
+    <machine name='rockpi' ip='192.168.137.20' user='ubuntu'/>
+    
+    <include machine='rockpi' file='$(find automated_hooking)/launch/winch_node.launch'/>
+    <include machine='xavier' file='$(find automated_hooking)/launch/camera_node.launch'/>
+    
+    <include file='$(find automated_hooking)/launch/gantry_node.launch'/>
+
+    <!-- Description files -->
+    <include file='$(find automated_hooking)/launch/target_description.launch'/>
+    <include file='$(find gantry_description)/launch/description.launch'/>
+</launch>
