@@ -1,13 +1,13 @@
 <launch>
-    <machine name='gantry' ip='192.168.137.2' user='pi'/>
-    <machine name='xavier' ip='192.168.137.12' user='jetson'/>
-    <machine name='rockpi' ip='192.168.137.20' user='ubuntu'/>
+    <!-- TODO: setup env_loader on gantry pi -->
+    <!-- <machine name='gantry' address='192.168.137.2' user='pi' env-loader='~/catkin_ws/env_loader.sh'/> -->
+    <!-- <machine name='rockpi' address='192.168.137.20' user='ubuntu' env-loader='~/catkin_ws/env_loader.sh'/> -->
     
-    <include machine='rockpi' file='$(find automated_hooking)/launch/winch_node.launch'/>
-    <include machine='xavier' file='$(find automated_hooking)/launch/camera_node.launch'/>
-    
-    <include file='$(find automated_hooking)/launch/gantry_node.launch'/>
-
     <!-- Description files -->
     <include file='$(find automated_hooking)/launch/system_description.launch'/>
+    
+    <!-- <include file='$(find automated_hooking)/launch/gantry_node.launch'/> -->
+    <!-- <include machine='rockpi' file='$(find automated_hooking)/launch/winch_node.launch'/> -->
+
+    <include file='$(find automated_hooking)/launch/camera_node.launch'/>
 </launch>
