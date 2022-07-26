@@ -1,22 +1,32 @@
 <launch>
-  <!-- START CAMERA WRAPPERS -->
+  <!-- START CAMERAS -->
   <group ns="cameras">
     <include file="$(find realsense2_camera)/launch/rs_multiple_devices.launch">
       <arg name="serial_no_camera1" value="f0172424" />
-      <arg name="camera1" value="front_cam" />
+      <arg name="camera1" value="camera_front" />
       
       <arg name="serial_no_camera2" value="f0233197" />
-      <arg name="camera2" value="back_cam" />
+      <arg name="camera2" value="camera_back" />
     </include>
   </group>
 
-  <!-- START APRIL TAG WRAPPER -->
-  <group ns="april_tag_wrapper">
-    <!-- <remap from="/tf" to="camera/april_tag_tf" /> -->
-    <!-- <remap to="/cameras/front_cam/color/image_raw/compressed" from="camera/image_rect" /> -->
-    <include file="$(find apriltag_ros)/launch/continuous_detection.launch">
-      <arg name="camera_name" value="/cameras/front_cam/color"/>
+  <!-- START APRIL TAGS -->
+  <group ns="tag_detector_front">
+    <include file="$(find automated_hooking)/launch/april_tag.launch">
+      <!-- <arg name="node_namespace" value="front_cam_detector" /> -->
+      <!-- <arg name="launch_prefix" value="front_cam_detector" /> -->
+      <arg name="camera_name" value="/cameras/camera_front/color"/>
       <arg name="image_topic" value="image_raw"/>
     </include>
   </group>
+  <group ns="tag_detector_back">
+    <include file="$(find automated_hooking)/launch/april_tag.launch">
+      <!-- <arg name="node_namespace" value="front_cam_detector" /> -->
+      <!-- <arg name="launch_prefix" value="front_cam_detector" /> -->
+      <arg name="camera_name" value="/cameras/camera_back/color"/>
+      <arg name="image_topic" value="image_raw"/>
+    </include>
+  </group>
+
+
 </launch>
