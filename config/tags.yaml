@@ -15,7 +15,7 @@
 # ### Syntax
 standalone_tags:
   [
-    {id: 00000, size: 0.065, name: "table_tag"}
+    {id: 00000, size: 0.165, name: "table_tag_observed"}
   ]
 # ## Tag bundle definitions
 # ### Remarks

@@ -22,15 +22,15 @@ msg = JointState()
 msg.name = ['x','y']
 rospy.sleep(0.5)
 
-msg.position = [1.75,-0.25]
-rospy.logwarn("start!")
-gantry_pub.publish(msg)
-rospy.sleep(5)
+# msg.position = [1.5,-0.25]
+# rospy.logwarn("start!")
+# gantry_pub.publish(msg)
+# rospy.sleep(5)
 
-msg.position = [1.75,0.25]
-rospy.logwarn("start!")
-gantry_pub.publish(msg)
-rospy.sleep(5)
+# msg.position = [1.5,0.25]
+# rospy.logwarn("start!")
+# gantry_pub.publish(msg)
+# rospy.sleep(5)
 
 # msg.position = []
 # msg.velocity = [0.00111754,-0.15]

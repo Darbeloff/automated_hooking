@@ -1,16 +1,16 @@
 <launch>
-    <!-- TODO: setup env_loader on gantry pi -->
-    <!-- <machine name='gantry' address='192.168.137.2' user='pi' env-loader='~/catkin_ws/env_loader.sh'/> -->
-    <!-- <machine name='rockpi' address='192.168.137.20' user='ubuntu' env-loader='~/catkin_ws/env_loader.sh'/> -->
-    
     <!-- Load system description -->
     <include file='$(find automated_hooking)/launch/system_description.launch'/>
     
-    <!-- <include file='$(find automated_hooking)/launch/gantry_node.launch'/> -->
-    <!-- <include machine='rockpi' file='$(find automated_hooking)/launch/winch_node.launch'/> -->
 
-    <!-- <include file='$(find automated_hooking)/launch/camera_node.launch'/> -->
+    <!-- Local Nodes -->
+    <node name='gantry_node' pkg='automated_hooking' type='gantry_node.py' output='screen'/>
 
-    <!-- <node name='gantry_node' pkg='automated_hooking' type='gantry_node.py'/> -->
-    <node name='winch_node' pkg='automated_hooking' type='winch_node.py'/>
+    <node name='tf_rerouter' pkg='automated_hooking' type='tf_rerouter.py' args='table_tag_observed table_tag map'/>
+    <node name='winch_node' pkg='automated_hooking' type='winch_node.py' output='screen'/>
+    <!-- <node name='controller_node' pkg='automated_hooking' type='controller_node.py' output='screen'/> -->
+    <!-- <node name='hook_node' pkg='automated_hooking' type='hook_node.py' output='screen'/> -->
+
+    <!-- Jetson Nodes -->
+    <include file='$(find automated_hooking)/launch/camera_node.launch'/>
 </launch>

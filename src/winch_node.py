@@ -13,7 +13,7 @@ from nav_msgs.msg import Odometry
 
 from OdriveClass import Odrive
 from Controls import PIDController, LPController
-from Utils import Vector
+from Utils3 import Vector
 
 class WinchNode:
     """
@@ -113,7 +113,7 @@ class WinchNode:
 
 
         # SAFETY
-        if not all(self.position == np.clip(self.position, *self.POSITION_BOUNDS[1])):
+        if not all(self.position == np.clip(self.position, *self.POSITION_BOUNDS)):
             # Winch has exceeded safety bounds
             
             # Stop motion

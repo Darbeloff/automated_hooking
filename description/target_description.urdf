@@ -20,7 +20,7 @@
     <joint name='april_tag_joint' type='fixed'>
         <child link='target_link'/>
         <parent link='table_tag' />
-        <origin xyz='0 0 0' />
+        <origin xyz='0 0 0' rpy='0 0 0'/>
     </joint>
 
     <link name='target_zone_1_link'/>
@@ -28,7 +28,7 @@
     <joint name='target_zone_1_joint' type='fixed'>
         <parent link='target_link'/>
         <child link='target_zone_1_link' />
-        <origin xyz='1 0 0' />
+        <origin xyz='0.3 0 0' rpy='0 0 ${pi/2}'/>
     </joint>
 
 

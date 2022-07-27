@@ -90,26 +90,31 @@ class HookingController:
         # Get position of table_tag in world space
         # Get position of target position in world space
         # Get movement direction from table_tag
-
-        
-
         rospy.sleep(0.1)
+        
+        rospy.logwarn('moving!')
+        while not rospy.is_shutdown():
+            T_base = self.get_T('map', 'base_link')
+            T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link') # TODO: add offset here, instead of in target description
 
-        T_base = self.get_T('map', 'base_link')
-        T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_link') # TODO: add offset here, instead of in target description
-        # T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link') # TODO: add offset here, instead of in target description
+            if np.linalg.norm(T_diff.get_translation()[:2]) < 0.05:
+                break
+            
+            # where we want the base to be
+            T_base_target = T_base + T_diff
+
+            # Move to target position in world space
+            # Await arrival in world space
+            self.control_gantry_position(T_base_target)
+
+            rospy.sleep(0.1)
         
-        # where we want the base to be
-        T_base_target = T_base + T_diff
-        
-        # Move to target position in world space
-        # Await arrival in world space
-        self.control_gantry_position(T_base_target, wait=True)
+        rospy.logwarn('Arrived!')
         quit()
 
         # Lower hook appropriately
-        height = T_diff.get_translation()[2] - 0.1 # go 10cm below the target point
-        self.control_winch_position(height,0, wait=True)
+        # height = T_diff.get_translation()[2] - 0.1 # go 10cm below the target point
+        # self.control_winch_position(height,0, wait=True)
         
 
         # Move in direction
@@ -118,11 +123,12 @@ class HookingController:
         move_speed = 0.2 
         self.control_gantry_velocity( move_direction * move_speed )
         
+        rospy.sleep(1)
         # Await amperage trigger
-        Utils.await_condition(
-            lambda: abs(self.winch_effort[0]) > 0.8,
-            timeout=20,
-            on_timeout=lambda: rospy.logwarn("Timed Out"))
+        # Utils.await_condition(
+        #     lambda: abs(self.winch_effort[0]) > 0.8,
+        #     timeout=20,
+        #     on_timeout=lambda: rospy.logwarn("Timed Out"))
 
         # Stop moving
         self.control_gantry_velocity([0,0,0])
@@ -149,8 +155,6 @@ class HookingController:
         # raise all winches
         self.control_winch_position([-0.5,-0.5,-0.5])
         
-
-
     def do_hooking(self):
         # do CV to get peg coords
         # compute box of acceptable ICs
@@ -181,6 +185,8 @@ class HookingController:
         # if collision is detected in an acceptable place, return
         # else, disengage, do_hooking again    
 
+
+
     def get_T(self, from_frame, to_frame):
         """
         Returns the transform from the from_frame to the to_frame as a handy Coord object
@@ -210,7 +216,7 @@ class HookingController:
 
         if wait:
             Utils.await_condition(
-                lambda: abs(coord - self.get_T('map', 'base_link')) < error
+                lambda: np.linalg.norm((coord - self.get_T('map', 'base_link')).get_translation()[:2]) < error
             )
 
     def control_winch_position(self, position, wait=False, error=0.05):
@@ -230,6 +236,8 @@ class HookingController:
         #         lambda: np.linalg.norm(self.winch_position - position) < error
         #     )
 
+
+    # UNTESTED
     def control_winch_position(self, position, winch, wait=False, error=0.05):
         msg = JointState()
         msg.name = [str(winch)]
@@ -240,7 +248,6 @@ class HookingController:
             Utils.await_condition(
                 lambda: abs(self.winch_position[winch] - position) < error
             )
-
 
     def control_winch_velocity(self, velocity):
         msg = JointState()
@@ -259,7 +266,6 @@ class HookingController:
         msg.velocity = [velocty]
         self.winch_control_pub.publish(msg)
     
-
     def control_winch_effort(self, effort):
         msg = JointState()
         msg.name = [] # will be '0','1','2' if all heights are specified
