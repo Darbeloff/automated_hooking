@@ -1,32 +1,30 @@
 <launch>
-  <machine name='xavier' address='192.168.137.12' user='jetson' env-loader='~/catkin_ws/env_loader.sh' default='true'/>
+    <machine name='xavier' address='192.168.137.12' user='jetson' env-loader='~/catkin_ws/env_loader.sh' default='true'/>
 
-  <!-- Requires apriltag, apriltag_ros, and realsense2_camera packages to be installed on target machine -->
+    <!-- Requires apriltag, apriltag_ros, and realsense2_camera packages to be installed on target machine -->
 
-  <!-- START CAMERAS -->
-  <group ns="cameras">
-    <include file="$(find realsense2_camera)/launch/rs_multiple_devices.launch">
-      <arg name="serial_no_camera1" value="f0172424" />
-      <arg name="camera1" value="camera_front" />
-      
-      <arg name="serial_no_camera2" value="f0233197" />
-      <arg name="camera2" value="camera_back" />
-    </include>
-  </group>
+    <!-- START CAMERAS -->
+    <group ns="cameras">
+        <include file="$(find realsense2_camera)/launch/rs_multiple_devices.launch">
+            <arg name="serial_no_camera1" value="f0172424" />
+            <arg name="camera1" value="camera_front" />
+            
+            <arg name="serial_no_camera2" value="f0233197" />
+            <arg name="camera2" value="camera_back" />
+        </include>
+    </group>
 
-  <!-- START APRIL TAGS -->
-  <group ns="tag_detector_front">
-    <include file="$(find automated_hooking)/launch/april_tag.launch">
-      <arg name="camera_name" value="/cameras/camera_front/color"/>
-      <arg name="image_topic" value="image_raw"/>
-    </include>
-  </group>
-  <group ns="tag_detector_back">
-    <include file="$(find automated_hooking)/launch/april_tag.launch">
-      <arg name="camera_name" value="/cameras/camera_back/color"/>
-      <arg name="image_topic" value="image_raw"/>
-    </include>
-  </group>
-
-
+    <!-- START APRIL TAGS -->
+    <group ns="tag_detector_front">
+        <include file="$(find automated_hooking)/launch/april_tag.launch">
+            <arg name="camera_name" value="/cameras/camera_front/color"/>
+            <arg name="image_topic" value="image_raw"/>
+        </include>
+    </group>
+    <group ns="tag_detector_back">
+        <include file="$(find automated_hooking)/launch/april_tag.launch">
+            <arg name="camera_name" value="/cameras/camera_back/color"/>
+            <arg name="image_topic" value="image_raw"/>
+        </include>
+    </group>
 </launch>

@@ -1,0 +1,8 @@
+<launch>
+    <machine name='gantry' address='192.168.137.2' user='pi' env-loader='~/catkin_ws/env_loader.sh' default='true'/>
+
+    <node name='topic_to_socketcan_node' pkg='socketcan_bridge' type='topic_to_socketcan_node'/>
+    <!-- <node name='socketcan_topic_to_node' pkg='socketcan_bridge' type='socketcan_to_topic_node'/> -->
+    <!-- <node name='topic_to_socketcan_node' pkg='socketcan_bridge' type='topic_to_socketcan_node' args='can0'/>
+    <node name='socketcan_topic_to_node' pkg='socketcan_bridge' type='socketcan_to_topic_node' args='can0'/> -->
+</launch>

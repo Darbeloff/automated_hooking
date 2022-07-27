@@ -14,7 +14,6 @@ from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
 import tf2_ros
-# import tf_conversions
 
 from Controls import PIDController, LPController
 from Utils import Vector, Coord, LogFile
@@ -357,7 +356,6 @@ class GantryNode:
         self.send_can_frame('control_x_speed', velocity[0])
         self.send_can_frame('control_y_speed', velocity[1])
 
-
     def publish_state(self):
         """
         Report the position and velocity of the gantry, computed from encoder counts
@@ -378,6 +376,7 @@ class GantryNode:
         msg.velocity = self.velocity
 
         self.state_pub.publish(msg)
+
 
 if __name__ == '__main__':
     # init ros node
