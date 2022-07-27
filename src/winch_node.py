@@ -26,6 +26,8 @@ class WinchNode:
     M_PER_COUNT = 1./COUNTS_PER_M
     # TODO: Allow saving offsets for re-zeroing
     
+    OFFSET = np.array([0.,0.,0.])
+
     POSITION_BOUNDS = (-1.7, 0.025)
     
     RATE = 20
@@ -95,7 +97,7 @@ class WinchNode:
             self.odrv0.get_encoder_count(0).pos_estimate,
             self.odrv1.get_encoder_count(0).pos_estimate,
             self.odrv1.get_encoder_count(1).pos_estimate
-        ]) * self.M_PER_COUNT
+        ]) * self.M_PER_COUNT + self.OFFSET
         self.velocity = np.array([    # in meters per second
             self.odrv0.get_encoder_count(0).vel_estimate,
             self.odrv1.get_encoder_count(0).vel_estimate,
@@ -130,6 +132,9 @@ class WinchNode:
 
         self.publish_state()
 
+    def set_current_position(self, position):
+        diff = np.array(position) - self.position
+        self.OFFSET += diff
 
     def control_callback(self, msg):
         """
@@ -143,7 +148,6 @@ class WinchNode:
 
         rospy.loginfo("velocity set:")
         rospy.loginfo(self.target_velocity)
-
 
     def set_pid_callback(self, msg):
         
@@ -173,7 +177,7 @@ class WinchNode:
         """
         self.target_position = np.array(self.target_position)
         
-        position_counts = np.clip(self.target_position, *self.POSITION_BOUNDS)*self.COUNTS_PER_M
+        position_counts = np.clip(self.target_position - self.OFFSET, *self.POSITION_BOUNDS)*self.COUNTS_PER_M
         self.odrv0.PosMove(position_counts[0],0)
         self.odrv1.PosMove(position_counts[1],0)
         self.odrv1.PosMove(position_counts[2],1)
