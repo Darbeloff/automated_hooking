@@ -12,6 +12,7 @@ from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
 from OdriveClass import Odrive
+from ODrive import ODrive
 from Controls import PIDController, LPController
 from Utils3 import Vector
 
@@ -64,6 +65,10 @@ class WinchNode:
             Vector3, self.set_pid_callback, queue_size=1)
 
     def init_state(self):
+        self.drive = ODrive('20673881304E', '2087377E3548')
+        print( self.drive.axis )
+        quit()        
+        
         self.odrv0 = Odrive('20673881304E') # Only has 1 winch
         self.odrv1 = Odrive('2087377E3548') # Has 2 winches
 

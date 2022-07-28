@@ -2,6 +2,7 @@
 
 - fix gantry velocity control
 - combine controls and utils files (make python package?)
+- figure out python version shennanigans
 - OdriveClass gets amp-control mode, is placed in Util file
 - winch_node controls different winches in different modes
 - make or modify odrive class so controlling all odrives is easier
