@@ -69,8 +69,7 @@ This step is techinically unnecessary, but it allows running the code with fewer
 - Ensure the `~/catkin_ws/env_loader.sh` file exists on the vision computer. This should already exists, unless someone has destroyed it. This file must define all environment variables (ROS_MASTER_URI, ROS_IP specifically) and source any ros workspace files.
 
 ### Notes:
-As usual, all computers in this system must agree about who is the ROS master; make sure that all computers have the same device set as their ROS_MASTER_URI
-
+- As usual, all computers in this system must agree about who is the ROS master; make sure that all computers have the same device set as their ROS_MASTER_URI, and that all have their own ip set as the ROS_IP environment variable. This must also be true in any `env_loader.sh` files.
 
 ## Running
 
