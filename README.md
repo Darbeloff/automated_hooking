@@ -113,7 +113,7 @@ In our case this is the raspberry pi that lives next to the breaker. More genera
     `rockpi> roslaunch automated_hooking all_nodes.launch`
 
     Tip: `rostopic list` and `rosnode list` are useful for sanity-checking that all nodes did indeed start.
-### 3 - Start all other nodes (if you did NOT do the optional setup steps)
+### 3 - Start all other nodes (if you did **not** do the optional setup steps)
 - Start camera nodes on the Camera Computer
 
     `jetson> roslaunch automated_hooking camera.launch`
