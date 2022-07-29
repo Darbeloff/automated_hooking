@@ -15,14 +15,7 @@ from threading import Thread
 import numpy as np
 
 import time
-# import math
-# import fibre
-# import serial
-# import struct
-# import signal
-# import sys
-# import pdb
-# import matplotlib.pyplot as plt
+
 
 
 in2mm = 25.4
@@ -45,7 +38,6 @@ class ODrive:
 
         self.odrv, self.axis = self.connect_all(inputs)
         self.printErrorStates()
-
 
         # print("Setting gains to default")
         self.set_gains(axis_num = 0)
@@ -81,75 +73,57 @@ class ODrive:
     #--------------------------- INIT FUNCTIONS -----------------------------
     def startup_init(self):
         print('Initializing encoder calibration sequence')
-        for i in self.axis:
-            i.requested_state = AXIS_STATE_IDLE
+        for axis in self.axis:
+            axis.requested_state = AXIS_STATE_IDLE
             time.sleep(1)
-            i.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
+            axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
             time.sleep(10)
-            i.requested_state = AXIS_STATE_ENCODER_OFFSET_CALIBRATION
+            axis.requested_state = AXIS_STATE_ENCODER_OFFSET_CALIBRATION
             time.sleep(10)
-            i.requested_state = AXIS_STATE_IDLE
+            axis.requested_state = AXIS_STATE_IDLE
             time.sleep(1)
             self.initflag=1
 
     def full_init(self,reset = True):
-        if(reset):
-            for i in range(0,2):
-                print(i)
-                self.odrv.config.brake_resistance = 0.5
-                self.axis[i].motor.config.pre_calibrated = False
+        for drive in self.drives:
+            drive.config.brake_resistance = 0.5
+            drive.save_configuration()
+        
+        self.set_gains(range(len(self.axis)))
 
-                #pole pairs
-                self.axis[i].motor.config.pole_pairs = 4
-                self.axis[i].controller.config.vel_limit = 200000 
+        for axis in self.axis:
+            if reset:
+                axis.motor.config.pre_calibrated = False
+                axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+                time.sleep(10)
 
-                self.axis[i].motor.config.motor_type = MOTOR_TYPE_HIGH_CURRENT
-                self.axis[i].encoder.config.cpr = 4000
-                self.axis[i].encoder.config.use_index = True
-                self.axis[i].encoder.config.zero_count_on_find_idx = True
-                self.axis[i].encoder.config.pre_calibrated = False
+                axis.motor.config.pole_pairs = 4
+                axis.controller.config.vel_limit = 200000 
+
+                axis.motor.config.motor_type = MOTOR_TYPE_HIGH_CURRENT
+                axis.encoder.config.cpr = 4000
+                axis.encoder.config.use_index = True
+                axis.encoder.config.zero_count_on_find_idx = True
+                axis.encoder.config.pre_calibrated = False
 
                 #motor calibration current
-                self.axis[i].motor.config.calibration_current = 4
-                self.axis[i].motor.config.resistance_calib_max_voltage = 12
+                axis.motor.config.calibration_current = 4
+                axis.motor.config.resistance_calib_max_voltage = 12
 
-                time.sleep(1)
-                self.axis[i].requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-                time.sleep(10)
-        for i in range(0,2):
-            time.sleep(1)
-            self.printErrorStates()
-            self.axis[i].requested_state = AXIS_STATE_IDLE
-            self.axis[i].motor.config.pre_calibrated=True
+            axis.motor.config.pre_calibrated=True
+            axis.config.startup_encoder_index_search = True
+            axis.config.startup_encoder_offset_calibration = True
 
-            self.axis[i].config.startup_encoder_index_search = True
-            self.axis[i].config.startup_encoder_offset_calibration = True
-            self.axis[i].controller.config.control_mode = CTRL_MODE_POSITION_CONTROL
-            self.printErrorStates()
-            kP_des = 2
-            kD_des = 0.0002
-            self.axis[i].controller.config.pos_gain = kP_des 
-            self.axis[i].controller.config.vel_gain = kD_des
-            self.axis[i].controller.config.vel_integrator_gain = 0.001
-            self.axis[i].controller.pos_setpoint = 0
-            time.sleep(1)
+        print('Calibration completed')
+        self.printErrorStates()
+    
 
-            self.odrv.save_configuration()
-            print('Calibration completed')
-            self.printErrorStates()
-
-    def make_perm(self):
-        self.odrv.save_configuration()
-
-    def set_gains(self,axis_num,kpp = 0.3,kvp = 0.0002,kvi = 0.0001):
+    def set_gains(self,axis_num,kpp = 10.0,kvp = 0.000005,kvi = 0.0001):
         self.axis[axis_num].requested_state=AXIS_STATE_IDLE
         self.axis[axis_num].controller.config.pos_gain = kpp
         self.axis[axis_num].controller.config.vel_gain = kvp
         self.axis[axis_num].controller.config.vel_integrator_gain = kvi
         time.sleep(1)
-
-    def set_closed_loop_state(self,axis_num):
-        self.axis[axis_num].requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
 
     def reboot(self):
         #Reboot and reconnect function
@@ -167,6 +141,8 @@ class ODrive:
 
 
     #--------------------------- CONTROL FUNCTIONS --------------------------
+
+    # update or remove
     def trajMoveCnt(self, axis_num, posDesired = 10000, velDesired = 25000, accDesired = 50000):
         #Move to a position with a specified trajectory
         
@@ -174,24 +150,37 @@ class ODrive:
         self.axis[axis_num].trap_traj.config.accel_limit = accDesired 
         self.axis[axis_num].trap_traj.config.decel_limit = accDesired
         self.axis[axis_num].controller.move_to_pos(posDesired)
+        
 
-    def PosMove(self,pos_setpt, axis_num):
-        self.axis[axis_num].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
-        self.axis[axis_num].controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
-        self.axis[axis_num].controller.pos_setpoint=pos_setpt
+    def set_position(self, ids, positions):
+        for id,position in zip(ids, positions):
+            self.axis[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
+            self.axis[id].controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
+            self.axis[id].controller.pos_setpoint=position
 
-    def VelMove(self,vel_setpt, axis_num):
-        #100000 = quarter rev per second
-        self.axis[axis_num].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
-        self.axis[axis_num].controller.config.control_mode=CTRL_MODE_VELOCITY_CONTROL
-        self.axis[axis_num].controller.vel_setpoint = vel_setpt
+    def set_velocity(self, ids, velocities):
+        for id,velocity in zip(ids, velocities):
+            self.axis[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
+            self.axis[id].controller.config.control_mode=CTRL_MODE_VELOCITY_CONTROL
+            self.axis[id].controller.vel_setpoint = velocity
+        
+    def set_effort(self, ids, efforts):
+        for id,effort in zip(ids, effort):
+            self.axis[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
+            self.axis[id].controller.config.control_mode=CTRL_MODE_TORQUE_CONTROL
+            self.axis[id].controller.torque_setpoint = effort
     
     #--------------------------- SENSOR FUNCTIONS --------------------------
-    def get_encoder_count(self,num):
+    def get_encoder_count(self,num): # this should be removes
         return self.axis[num].encoder
 
-    def get_current(self,axis_num):
-        return self.axis[axis_num].motor.current_control.Iq_measured
+    def get_position(self):
+        return np.array([axis.encoder.pos_estimate for axis in self.axis])
+    def get_velocity(self):
+        return np.array([axis.encoder.vel_estimate for axis in self.axis])
+    def get_effort(self):
+        # return [axis.motor.current_control.Id_measured for axis in self.axis]
+        return np.array([axis.motor.current_control.Id_setpoint for axis in self.axis]) * Nm2A
 
 
     #-------------------- ERROR CHECKING PRINT FUNCTIONS --------------------

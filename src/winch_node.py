@@ -69,18 +69,18 @@ class WinchNode:
         print( self.drive.axis )
         quit()        
         
-        self.odrv0 = Odrive('20673881304E') # Only has 1 winch
-        self.odrv1 = Odrive('2087377E3548') # Has 2 winches
+        # self.odrv0 = Odrive('20673881304E') # Only has 1 winch
+        # self.odrv1 = Odrive('2087377E3548') # Has 2 winches
 
-        self.current_filter = LPController(0.1)
+        self.effort_filter = LPController(0.1)
 
-        self.target_velocity = np.zeros(3) 
-        self.target_position = None
+        # self.target_velocity = np.zeros(3) 
+        # self.target_position = None
 
         self.position = [0,0,0]
         self.velocity = [0,0,0]
-        self.raw_current = [0,0,0]
-        self.current = [0,0,0]
+        self.effort_raw = [0,0,0]
+        self.effort = [0,0,0]
 
     def loop_callback(self):
         """
@@ -91,29 +91,11 @@ class WinchNode:
         delta_t = time - self.prev_time
         self.prev_time = time
 
-        # Write position or velocity
-        if self.target_position is None:
-            self.write_velocity()
-        else:
-            self.write_position()
-        
-        # Get state
-        self.position = np.array([   # in meters
-            self.odrv0.get_encoder_count(0).pos_estimate,
-            self.odrv1.get_encoder_count(0).pos_estimate,
-            self.odrv1.get_encoder_count(1).pos_estimate
-        ]) * self.M_PER_COUNT + self.OFFSET
-        self.velocity = np.array([    # in meters per second
-            self.odrv0.get_encoder_count(0).vel_estimate,
-            self.odrv1.get_encoder_count(0).vel_estimate,
-            self.odrv1.get_encoder_count(1).vel_estimate
-        ]) * self.M_PER_COUNT
-        self.raw_current = [      # in amps
-            self.odrv0.get_current(0),
-            self.odrv1.get_current(0),
-            self.odrv1.get_current(1)
-        ]
-        self.current = self.current_filter.do_control(self.current, self.raw_current, delta_t)
+        self.position = self.drive.get_position()
+        self.velocity = self.drive.get_velocity()
+        self.effort_raw = self.drive.get_effort()
+
+        self.effort = self.effort_filter.do_control(self.effort, self.effort_raw, delta_t)
         # TODO: If too much current, do something. Disengage? Freeze?
 
 
@@ -141,51 +123,25 @@ class WinchNode:
         diff = np.array(position) - self.position
         self.OFFSET += diff
 
+
     def control_callback(self, msg):
         """
         Set the target position, velocity, or effort of each winch
         """
-        self.target_position =  Vector.to_array(msg.position)
-        self.target_velocity =  Vector.to_array(msg.velocity)
-        self.target_effort =    Vector.to_array(msg.effort)
+        ids = [int(name) for name in msg.name]
+        
+        if msg.velocity:
+            self.drive.set_velocity(ids, msg.velocity)
+        elif msg.position:
+            self.drive.set_position(ids, msg.position)
+        elif msg.effort:
+            self.drive.set_effort(ids, msg.effort)
 
-        assert( np.count_nonzero([self.target_position, self.target_velocity, self.target_effort] == None ) == 1 )
-
-        rospy.loginfo("velocity set:")
-        rospy.loginfo(self.target_velocity)
 
     def set_pid_callback(self, msg):
-        
-        Kp = msg.x
-        Kd = msg.y
-        Ki = msg.z
-        self.odrv0.set_gains(0, Kp, Kd, Ki)
-        self.odrv0.set_gains(0, Kp, Kd, Ki)
-        self.odrv1.set_gains(1, Kp, Kd, Ki)
+        self.drive.set_gains([0,1,2,3], *Vector.to_array(msg))
 
         rospy.loginfo(f"PID set to: {Kp}, {Kd}, {Ki}")
-
-    def write_velocity(self):
-        """
-        Interface with the Odrive class, set velocity to target_velocity
-        """
-        self.target_velocity = np.array(self.target_velocity)
-
-        velocity_counts = self.target_velocity*self.COUNTS_PER_M
-        self.odrv0.VelMove(velocity_counts[0],0)
-        self.odrv1.VelMove(velocity_counts[1],0)
-        self.odrv1.VelMove(velocity_counts[2],1)
-    
-    def write_position(self):
-        """
-        Interface with the Odrive class, set position to target_position
-        """
-        self.target_position = np.array(self.target_position)
-        
-        position_counts = np.clip(self.target_position - self.OFFSET, *self.POSITION_BOUNDS)*self.COUNTS_PER_M
-        self.odrv0.PosMove(position_counts[0],0)
-        self.odrv1.PosMove(position_counts[1],0)
-        self.odrv1.PosMove(position_counts[2],1)
 
     def publish_state(self):
         """
@@ -196,7 +152,7 @@ class WinchNode:
         msg.name = ['0','1','2']
         msg.position =  self.position   # in rotations
         msg.velocity = self.velocity    # in rotations per second
-        msg.effort = self.current      # in amps
+        msg.effort = self.effort      # in Nm
 
         self.state_pub.publish(msg)
 
