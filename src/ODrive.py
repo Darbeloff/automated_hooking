@@ -12,17 +12,17 @@ Edited by Quinn Bowers, July 2022
 import odrive
 from odrive.enums import *
 from threading import Thread
+import numpy as np
 
 import time
-import math
-import fibre
-import serial
-import struct
-import signal
-import sys
-import pdb
-import matplotlib.pyplot as plt
-import numpy as np
+# import math
+# import fibre
+# import serial
+# import struct
+# import signal
+# import sys
+# import pdb
+# import matplotlib.pyplot as plt
 
 
 in2mm = 25.4
@@ -52,10 +52,8 @@ class ODrive:
         self.set_gains(axis_num = 1)
 
     def connect_all(self, serials):
-        #Connects to odrives of specified serial ids
-        # TODO: parallelize
+        # Connects to odrives of specified serial ids
         drives = [None]*len(serials)
-        axis = [None]*2*len(serials)
         
         def _connect(i):
             def _thread(): 
@@ -63,19 +61,20 @@ class ODrive:
                 print("Finding odrive: " + serial + "...")
 
                 drive = odrive.find_any(serial_number = serial)
-                drive[i] = drive
+                drives[i] = drive
                 print("Found odrive!")
-
-                axis[2*i] = drive.axis0
-                axis[2*i + 1] = drive.axis1
 
             return _thread
 
+        # start threads
         threads = [Thread(target=_connect(i)) for i in range(len(serials))]
         for thread in threads:
             thread.start()
+        # wait for all to complete
         for thread in threads:
             thread.join()
+
+        axis = np.ravel([[d.axis0, d.axis1] for d in drives])
         
         return drives,axis
 
