@@ -1,5 +1,8 @@
 # Automated Hooking
 Code and content for autonomously hooking horizontal pegs with a gantry crane. This project builds heavily on [previous research](https://github.com/Cormac0/Horizontal_Insertion). This code was built for ROS1 Melodic, so no promises about it working on other distros.
+
+For other useful bits of information I refer readers to [everything I know about the crane system](Everything_I_Know_About_The_Crane.md)
+
 ## Software Setup
 ### 1 - Install code on Crane Computer.
 In our case this is the rockpi.
