@@ -8,22 +8,28 @@ The (optional for this device) realsense packages do not support raspbian, so be
 
 - Install this code and the `gantry_description` package
 
-    `cd ~/catkin_ws/src
+    ```
+    cd ~/catkin_ws/src
     git clone https://github.com/dArbeloff/gantry_description
     git clone https://github.com/dArbeloff/automated_hooking
     cd ..
-    catkin build`
+    catkin build
+    ```
 
 - Install optional dependencies. (technically these only need to be installed on the vision computer, see setup step 3 for justification)
 
-    `sudo apt install ros-melodic-realsense2
-    sudo apt install ros-melodic-realsense2-description`
+    ```
+    sudo apt install ros-melodic-realsense2
+    sudo apt install ros-melodic-realsense2-description
+    ```
 
-    `cd ~/catkin_ws/src
+    ```
+    cd ~/catkin_ws/src
     git clone https://github.com/AprilRobotics/apriltag
     git clone https://github.com/AprilRobotics/apriltag_ros
     cd ..
-    catkin build`
+    catkin build
+    ```
 
 ### 2 - Install components on the vision computer
 In our case this is the nvidia jetson.
@@ -31,24 +37,30 @@ The (required for this device) realsense packages do not support raspbian, so be
 
 - Install this code and the `gantry_description` package
 
-    `cd ~/catkin_ws/src
+    ```
+    cd ~/catkin_ws/src
     git clone https://github.com/dArbeloff/gantry_description
     git clone https://github.com/dArbeloff/automated_hooking
     cd ..
-    catkin build`
+    catkin build
+    ```
 
 - Install realsense packages
 
-    `sudo apt install ros-melodic-realsense2
-    sudo apt install ros-melodic-realsense2-description`
+    ```
+    sudo apt install ros-melodic-realsense2
+    sudo apt install ros-melodic-realsense2-description
+    ```
 
 - Install apriltag packages
 
-    `cd ~/catkin_ws/src
+    ```
+    cd ~/catkin_ws/src
     git clone https://github.com/AprilRobotics/apriltag
     git clone https://github.com/AprilRobotics/apriltag_ros
     cd ..
-    catkin build`
+    catkin build
+    ```
 
 
 ### 3 - Allow crane computer to roslaunch remotely onto the vision computer
@@ -89,9 +101,11 @@ In our case this is the raspberry pi that lives next to the breaker. More genera
     Try simply running `pi> can_node`.
 
     If this doesnt work, run these three instead:
-    `pi> sudo ip link set can0 up type can bitrate 500000
-     pi> rosrun socketcan_bridge topic_to_socketcan_node can0
-     pi> rosrun socketcan_bridge socketcan_to_topic_node can0`
+    ```
+    pi> sudo ip link set can0 up type can bitrate 500000
+    pi> rosrun socketcan_bridge topic_to_socketcan_node can0
+    pi> rosrun socketcan_bridge socketcan_to_topic_node can0
+    ```
 
 ### 3 - Start all other nodes (if you did the optional setup steps)
 - Start all other nodes from the Crane Computer
