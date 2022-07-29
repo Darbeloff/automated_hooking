@@ -68,7 +68,7 @@ class HookingController:
         """
         Simple hooking algorithm: move in a direction until winch reports amperage above a threshold
 
-        Note: OUTDATED
+        NOTE: Outdated 7/29/22
         """
         tmsg = Twist()
         tmsg.linear = Vector([2,0,0])
@@ -153,37 +153,7 @@ class HookingController:
         self.control_gantry_position(T_target)
 
         # raise all winches
-        self.control_winch_position([-0.5,-0.5,-0.5])
-        
-    def do_hooking(self):
-        # do CV to get peg coords
-        # compute box of acceptable ICs
-        # tell gantry node to drive to center of IC box
-        
-        collision_back = True
-        collision_low = True
-        while collision_back or collision_low:
-            # drive gantry toward peg until hook node reports collision
-            
-            collision_back = False # if collision was on back of hook
-            collision_low = False # if collision was below the lip of the hook
-            
-            if collision_back or collision_low:
-                # back off
-                pass
-
-            if collision_low:
-                # decrease z_height of hook via winch node
-                pass
-        
-        # move gantry toward peg until winch_node or gantry_node reports amperage spike
-
-        # engage retainer via hook_node
-
-        # move gantry above peg coords
-        # retract winch until winch_node reports amperage spike
-        # if collision is detected in an acceptable place, return
-        # else, disengage, do_hooking again    
+        self.control_winch_position([-0.5,-0.5,-0.5]) 
 
 
 
@@ -194,19 +164,28 @@ class HookingController:
         return Coord( self.tf_buffer.lookup_transform(from_frame,to_frame, rospy.Time(0)) )
 
     def winch_state_callback(self, msg):
+        """
+        Save state reported by the winch node
+        """
         self.winch_effort = np.array(msg.effort)
         self.winch_position = np.array(msg.position)
         self.winch_velocity = np.array(msg.velocity)
 
     def control_gantry_velocity(self, velocity):
+        """
+        Tell the gantry to move to a particular velocity
+        """
         msg = JointState()
 
         msg.name = ['x','y']
-        msg.velocity = velocity
+        msg.velocity = velocity[:2]
 
         self.gantry_control_pub.publish(msg)
 
-    def control_gantry_position(self, coord, wait=False, error=0.05):
+    def control_gantry_position(self, coord, wait=False, error=0.05, timeout=60):
+        """
+        Move the gantry to a specific coordinate. Option to wait until it is within `error` meters of the target coordinate (in the 2D plane)
+        """
         msg = JointState()
 
         msg.name = ['x','y']
@@ -216,73 +195,27 @@ class HookingController:
 
         if wait:
             Utils.await_condition(
-                lambda: np.linalg.norm((coord - self.get_T('map', 'base_link')).get_translation()[:2]) < error
-            )
+                lambda: np.linalg.norm((coord - self.get_T('map', 'base_link')).get_translation()[:2]) < error,
+                timeout=timeout )
 
-    def control_winch_position(self, position, wait=False, error=0.05):
+    def control_winch_position(self, winches, position, wait=False, error=0.05, timeout=60):
+        """
+        Move the winches to target positions. Option to wait until these winches arrive at said locations
+        """
+        winches = np.ravel(winches) # cast to 1D array
+        position = np.ravel(position)
+
         msg = JointState()
-        msg.name = [] # will be '0','1','2' if all heights are specified
-        msg.position = []
-
-        for i in range(len(position)):
-            if not position[i] is None:
-                msg.name.append(str(i))
-                msg.position.append(position[i])
-
-        self.winch_control_pub.publish(msg)
-
-        # if wait:
-        #     Utils.await_condition(
-        #         lambda: np.linalg.norm(self.winch_position - position) < error
-        #     )
-
-
-    # UNTESTED
-    def control_winch_position(self, position, winch, wait=False, error=0.05):
-        msg = JointState()
-        msg.name = [str(winch)]
-        msg.effort = [effort]
+        msg.name = [str(winch) for winch in winches]
+        msg.position = position
         self.winch_control_pub.publish(msg)
 
         if wait:
             Utils.await_condition(
-                lambda: abs(self.winch_position[winch] - position) < error
-            )
+                lambda: np.linalg.norm(self.winch_position[winches] - position) < error,
+                timeout=timeout)
 
-    def control_winch_velocity(self, velocity):
-        msg = JointState()
-        msg.name = [] # will be '0','1','2' if all heights are specified
-        msg.velocity = []
-
-        for i in range(len(velocity)):
-            if not velocity[i] is None:
-                msg.name.append(str(i))
-                msg.velocity.append(velocity[i])
-        self.winch_control_pub.publish(msg)
-
-    def control_winch_velocity(self, velocity, winch):
-        msg = JointState()
-        msg.name = [str(winch)]
-        msg.velocity = [velocty]
-        self.winch_control_pub.publish(msg)
     
-    def control_winch_effort(self, effort):
-        msg = JointState()
-        msg.name = [] # will be '0','1','2' if all heights are specified
-        msg.effort = []
-
-        for i in range(len(effort)):
-            if not effort[i] is None:
-                msg.name.append(str(i))
-                msg.effort.append(effort[i])
-
-        self.winch_control_pub.publish(msg)
-    
-    def control_winch_effort(self, effort, winch):
-        msg = JointState()
-        msg.name = [str(winch)]
-        msg.effort = [effort]
-        self.winch_control_pub.publish(msg)
 
 if __name__ == '__main__':
     # init ros node

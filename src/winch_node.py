@@ -19,7 +19,7 @@ from Utils3 import Vector
 class WinchNode:
     """
     This node connects to the ODrive motors that control the winches on the gantry crane
-    It is separate from gantry node because it may run on a separate Pi
+    It is separate from gantry node to allow running on a separate Pi
     """
     MAX_VEL = 100000 # Max. speed for winch in encoder counts per second
     

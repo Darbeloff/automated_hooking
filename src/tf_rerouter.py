@@ -14,7 +14,8 @@ from Utils import Vector, Coord
 
 class TFRerouter:
     """
-    This node creates a new tf frame a' at the location of frame a, rooted at frame b
+    This node creates a new tf frame a' at the location of frame a, rooted at frame b.
+    Use when your sensors are moving (w.r.t. the detected object) and unreliable.
     """
     RATE = 20
     def __init__(self, a, a_prime, b):

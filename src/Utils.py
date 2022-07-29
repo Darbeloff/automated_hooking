@@ -9,6 +9,9 @@ from geometry_msgs.msg import Transform
 
 
 class LogFile:
+    """
+    A handy class to open and deal with logging files. Use when you want to update a csv over time. Mostly threadsafe
+    """
     def __init__(self, filename, headers):
         #headers should be an array of headers
         #filename should just be a name, string
@@ -96,7 +99,7 @@ class Coord:
             # TODO: input is lone position vector
             self.T = inputs[0]
         else:
-            # input is a message
+            # input is a ROS message
             x,q = search_recursive(inputs[0], [['translation','position'],['rotation','orientation']])
 
             P = tf_t.translation_matrix(Vector.to_array( x ))
@@ -158,10 +161,14 @@ class Coord:
 
 
 def search_recursive(object, attributes, max_depth=3):
-    # reshape keys to be a 2d array. Allows more general inputs
+    """
+    Handy function to look for attribute names in an object recursively. Particularly useful when trying to extract `position` or `translation` from many possible types of ROS message
+    """
+
+
+    # reshape attributes to be a 2d array. Allows more general inputs
     for i in range(len(attributes)):
-        if isinstance( attributes[i], str ):
-            attributes[i] = [attributes[i]]
+        attributes[i] = np.ravel(attributes[i])
 
     # define output
     out = [None] * len(attributes)
@@ -199,23 +206,16 @@ def search_recursive(object, attributes, max_depth=3):
     return out
 
 def await_condition(condition, timeout=60, on_condition=lambda: 0, on_timeout=lambda: 0, sleep_time=0.1):
+    """
+    Handy function to delay until a condition is met. Offers optional arguments for on_condition and on_timeout (which will be returned if the condition is met or the function times out). Also allows the timeout duration to be specified
+    """
+
     start_time = rospy.get_rostime().to_sec()
     
     while not rospy.is_shutdown() and rospy.get_rostime().to_sec() - start_time < timeout:
         if condition():
-            on_condition()
-            return
-        
+            return on_condition()
+            
         rospy.sleep(sleep_time)
 
-    on_timeout()
-
-
-# q = tf_t.quaternion_from_euler(1,2,3,'ryxz')
-# t = [0,0,0]
-
-
-# coord = Coord(t,q)
-# print(coord)
-# print(q)
-# print(coord.to_tf().rotation)
+    return on_timeout()
