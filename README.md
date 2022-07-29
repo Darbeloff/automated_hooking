@@ -1,9 +1,9 @@
 # Automated Hooking
-Code and content for autonomously hooking horizontal pegs with a gantry crane. This project builds heavily on [previous research](https://github.com/Cormac0/Horizontal_Insertion). This code was built for ROS1 Melodic, so no promises about it working on other distros
+Code and content for autonomously hooking horizontal pegs with a gantry crane. This project builds heavily on [previous research](https://github.com/Cormac0/Horizontal_Insertion). This code was built for ROS1 Melodic, so no promises about it working on other distros.
 ## Software Setup
-### 1 - Install code on crane computer.
+### 1 - Install code on Crane Computer.
 In our case this is the rockpi.
-The crane computer must support odrive 4.(something)
+The Crane Computer must support odrive 4.(something)
 The (optional for this device) realsense packages do not support raspbian, so be sure to use something beefier than a pi.
 
 - Install this code and the `gantry_description` package
@@ -16,7 +16,7 @@ The (optional for this device) realsense packages do not support raspbian, so be
     catkin build
     ```
 
-- Install optional dependencies. (technically these only need to be installed on the vision computer, see setup step 3 for justification)
+- Install optional dependencies. (technically these only need to be installed on the Vision Computer, see setup step 3 for justification)
 
     ```
     sudo apt install ros-melodic-realsense2
@@ -31,7 +31,7 @@ The (optional for this device) realsense packages do not support raspbian, so be
     catkin build
     ```
 
-### 2 - Install components on the vision computer
+### 2 - Install components on the Vision Computer
 In our case this is the nvidia jetson.
 The (required for this device) realsense packages do not support raspbian, so be sure to use something beefier than a pi.
 
@@ -63,22 +63,22 @@ The (required for this device) realsense packages do not support raspbian, so be
     ```
 
 
-### 3 - Allow crane computer to roslaunch remotely onto the vision computer
-This step is techinically unnecessary, but it allows running the code with fewer ssh sessions and makes me feel nice
+### 3 - Allow Crane Computer to roslaunch remotely onto the Vision Computer
+This step is techinically unnecessary, but it allows running the code with fewer ssh sessions and makes me feel nice.
 
-- Add the crane computer's ssh key to the vision computer's `authorized_hosts` file
+- Add the Crane Computer's ssh key to the Vision Computer's `authorized_hosts` file
 
-    Find the crane computer's ssh key: `rockpi> cat ~/.ssh/id_*.pub`
+    Find the Crane Computer's ssh key: `rockpi> cat ~/.ssh/id_*.pub`
     
     Copy it into the jetson's authorized_hosts file at: `jetson> nano ~/.ssh/authorized_hosts`
 
-- Add the vision computer to the crane computer's known_hosts file
+- Add the Vision Computer to the Crane Computer's known_hosts file
 
     `rockpi> ssh -oHostKeyAlgorithms='ssh-rsa' {user}@{vision_computer_ip}`
 
-    This should ssh you onto the vision computer without prompting you for a password. the `-oHostKeyAlgorithms` is required because roslaunch only accepts certain types of keys in the known_hosts file; if roslaunching remotely is failing, try deleting known_hosts and trying this part again
+    This should ssh you onto the Vision Computer without prompting you for a password. the `-oHostKeyAlgorithms` is required because roslaunch only accepts certain types of keys in the known_hosts file; if roslaunching remotely is failing, try deleting known_hosts and trying this part again.
 
-- Ensure the `~/catkin_ws/env_loader.sh` file exists on the vision computer. This should already exists, unless someone has destroyed it. This file must define all environment variables (ROS_MASTER_URI, ROS_IP specifically) and source any ros workspace files.
+- Ensure the `~/catkin_ws/env_loader.sh` file exists on the Vision Computer. This should already exists, unless someone has destroyed it. This file must define all environment variables (ROS_MASTER_URI, ROS_IP specifically) and source any ros workspace files.
 
 ### Notes:
 - As usual, all computers in this system must agree about who is the ROS master; make sure that all computers have the same device set as their ROS_MASTER_URI, and that all have their own ip set as the ROS_IP environment variable. This must also be true in any `env_loader.sh` files.
@@ -112,7 +112,7 @@ In our case this is the raspberry pi that lives next to the breaker. More genera
 
     `rockpi> roslaunch automated_hooking all_nodes.launch`
 
-    Tip: `rostopic list` and `rosnode list` are useful for sanity-checking that all nodes did indeed start
+    Tip: `rostopic list` and `rosnode list` are useful for sanity-checking that all nodes did indeed start.
 ### 3 - Start all other nodes (if you did NOT do the optional setup steps)
 - Start camera nodes on the Camera Computer
 
@@ -128,4 +128,4 @@ In our case this is the raspberry pi that lives next to the breaker. More genera
 
 [Parts List](Parts_List.md)
 
-Manufacture is TODO
+Manufacture is TODO.
