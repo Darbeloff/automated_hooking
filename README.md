@@ -1,48 +1,118 @@
 # Automated Hooking
-Code and content for autonomously hooking horizontal pegs with a gantry crane
+Code and content for autonomously hooking horizontal pegs with a gantry crane. This project builds heavily on [previous research](https://github.com/Cormac0/Horizontal_Insertion). This code was built for ROS1 Melodic, so no promises about it working on other distros
+## Software Setup
+### 1 - Install code on crane computer.
+In our case this is the rockpi.
+The crane computer must support odrive 4.(something)
+The (optional for this device) realsense packages do not support raspbian, so be sure to use something beefier than a pi.
 
-This project builds heavily on [previous research](https://github.com/Cormac0/Horizontal_Insertion)j
+- Install this code and the `gantry_description` package
 
-## Setup
+    `cd ~/catkin_ws/src
+    git clone https://github.com/dArbeloff/gantry_description
+    git clone https://github.com/dArbeloff/automated_hooking
+    cd ..
+    catkin build`
 
-TODO
+- Install optional dependencies. (technically these only need to be installed on the vision computer, see setup step 3 for justification)
+
+    `sudo apt install ros-melodic-realsense2
+    sudo apt install ros-melodic-realsense2-description`
+
+    `cd ~/catkin_ws/src
+    git clone https://github.com/AprilRobotics/apriltag
+    git clone https://github.com/AprilRobotics/apriltag_ros
+    cd ..
+    catkin build`
+
+### 2 - Install components on the vision computer
+In our case this is the nvidia jetson.
+The (required for this device) realsense packages do not support raspbian, so be sure to use something beefier than a pi.
+
+- Install this code and the `gantry_description` package
+
+    `cd ~/catkin_ws/src
+    git clone https://github.com/dArbeloff/gantry_description
+    git clone https://github.com/dArbeloff/automated_hooking
+    cd ..
+    catkin build`
+
+- Install realsense packages
+
+    `sudo apt install ros-melodic-realsense2
+    sudo apt install ros-melodic-realsense2-description`
+
+- Install apriltag packages
+
+    `cd ~/catkin_ws/src
+    git clone https://github.com/AprilRobotics/apriltag
+    git clone https://github.com/AprilRobotics/apriltag_ros
+    cd ..
+    catkin build`
+
+
+### 3 - Allow crane computer to roslaunch remotely onto the vision computer
+This step is techinically unnecessary, but it allows running the code with fewer ssh sessions and makes me feel nice
+
+- Add the crane computer's ssh key to the vision computer's `authorized_hosts` file
+
+    Find the crane computer's ssh key: `rockpi> cat ~/.ssh/id_*.pub`
+    
+    Copy it into the jetson's authorized_hosts file at: `jetson> nano ~/.ssh/authorized_hosts`
+
+- Add the vision computer to the crane computer's known_hosts file
+
+    `rockpi> ssh -oHostKeyAlgorithms='ssh-rsa' {user}@{vision_computer_ip}`
+
+    This should ssh you onto the vision computer without prompting you for a password. the `-oHostKeyAlgorithms` is required because roslaunch only accepts certain types of keys in the known_hosts file; if roslaunching remotely is failing, try deleting known_hosts and trying this part again
+
+- Ensure the `~/catkin_ws/env_loader.sh` file exists on the vision computer. This should already exists, unless someone has destroyed it. This file must define all environment variables (ROS_MASTER_URI, ROS_IP specifically) and source any ros workspace files.
+
+### Notes:
+As usual, all computers in this system must agree about who is the ROS master; make sure that all computers have the same device set as their ROS_MASTER_URI
+
+
+## Running
+
+### 1 - Turn on the Crane
+Flip the breaker to On. Move the gantry in all directions to ensure it behaves normally. If the crane jitters or doesnt move in a specific direction, this is often due to the Gantry Computer acting up; try unplugging the gantry computer and starting over.
+### 2 - Start Nodes on the Gantry Computer
+In our case this is the raspberry pi that lives next to the breaker. More generally, this is the node connected to arduino CAN that drives the gantry.
+
+- Ensure `roscore` is running
+
+    `pi> nohup roscore &`
+
+    This command starts a copy of roscore in the background, that will continue running even if this terminal is closed. 
+
+- Start the CAN bridge nodes
+
+    Try simply running `pi> can_node`.
+
+    If this doesnt work, run these three instead:
+    `pi> sudo ip link set can0 up type can bitrate 500000
+     pi> rosrun socketcan_bridge topic_to_socketcan_node can0
+     pi> rosrun socketcan_bridge socketcan_to_topic_node can0`
+
+### 3 - Start all other nodes (if you did the optional setup steps)
+- Start all other nodes from the Crane Computer
+
+    `rockpi> roslaunch automated_hooking all_nodes.launch`
+
+    Tip: `rostopic list` and `rosnode list` are useful for sanity-checking that all nodes did indeed start
+### 3 - Start all other nodes (if you did NOT do the optional setup steps)
+- Start camera nodes on the Camera Computer
+
+    `jetson> roslaunch automated_hooking camera.launch`
+
+- Start all remaining nodes on the Crane Computer
+
+    `rockpi> roslaunch crane.launch`
+
+
 
 ## Parts and Manufacture
 
 [Parts List](Parts_List.md)
 
 Manufacture is TODO
-
-## Attachment Algorithm Overview
-
-**Set Initial Condition**
-> - Use camera to detect peg location with mounted April Tag
-> - Compute bounding box of acceptable initial conditions to the right of the peg
-> - Use crane to move hook to the center of this bounding box (this can be imprecise)
-
-**Alignment**
-> - WHILE True
-> > - Move crane left until hook-mounted accelerometer detects an impact
-> > - Use combination of linear and rotational acceleration to determine position of impact
-> > - IF impact was detected on below the lip of the hook
-> > > - Lower Z position of the hook
-> > > - Back off and try again
-> > - IF impact was detected on the back side of the hook
-> > > - Back off and try again
-> > - IF neither
-> > > - break
-
-**Hooking**
-> - Move crane left to continue pulling the hook until ammeters in the crane detect the line is taut
-> - Slack the line to release tension
-
- **Verification**
-> - Move crane to be vertically above the peg
-> - Winch in line until ammeters in the crane detect the line is taut
-> - Use information from the hook-mounted accelerometer to determine if impact was on the inner surface of the hook
-> - IF so, DONE!
-> - ELSE
-> > - Go to Detachment process, and begin again from **set initial condition**
-
-**Detatchment**
-> - TODO
