@@ -33,7 +33,7 @@ The (optional for this device) realsense packages do not support raspbian, so be
 
 ### 2 - Install components on the Vision Computer
 In our case this is the nvidia jetson.
-The (required for this device) realsense packages do not support raspbian, so be sure to use something beefier than a pi.
+The (**required** for this device) realsense packages do not support raspbian, so be sure to use something beefier than a pi.
 
 - Install this code and the `gantry_description` package
 
