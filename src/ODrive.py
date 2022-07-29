@@ -22,7 +22,7 @@ in2mm = 25.4
 mm2in = 1/in2mm
 in2m = in2mm/1000
 
-Nm2A = 0.00000604 
+Nm2A = 0.00000604
 
 #208637853548
 #2061377C3548
@@ -35,16 +35,16 @@ class ODrive:
     CPR2RAD = (2*np.pi/400000)
 
     def __init__(self,*inputs):
-
-        self.odrv, self.axis = self.connect_all(inputs)
+        self.drives, self.axes = self.connect_all(inputs)
         self.printErrorStates()
 
         # print("Setting gains to default")
-        self.set_gains(axis_num = 0)
-        self.set_gains(axis_num = 1)
+        self.set_gains(range(len(self.axes)))
 
     def connect_all(self, serials):
-        # Connects to odrives of specified serial ids
+        """
+        Connects to odrives of specified serial ids. Returns both the drives and the attached axes
+        """
         drives = [None]*len(serials)
         
         def _connect(i):
@@ -66,14 +66,19 @@ class ODrive:
         for thread in threads:
             thread.join()
 
-        axis = np.ravel([[d.axis0, d.axis1] for d in drives])
+        axes = np.ravel([[d.axis0, d.axis1] for d in drives])
+        # TODO: remove axes that are not attached to motors
         
-        return drives,axis
+        return drives,axes
 
     #--------------------------- INIT FUNCTIONS -----------------------------
     def startup_init(self):
+        """
+        Do calibration
+        NOTE: untested 7/29/22
+        """
         print('Initializing encoder calibration sequence')
-        for axis in self.axis:
+        for axis in self.axes:
             axis.requested_state = AXIS_STATE_IDLE
             time.sleep(1)
             axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
@@ -85,13 +90,17 @@ class ODrive:
             self.initflag=1
 
     def full_init(self,reset = True):
+        """
+        Do calibration, set various control constants and save the configuration
+        NOTE: untested 7/29/22
+        """
         for drive in self.drives:
             drive.config.brake_resistance = 0.5
             drive.save_configuration()
         
-        self.set_gains(range(len(self.axis)))
+        self.set_gains(range(len(self.axes)))
 
-        for axis in self.axis:
+        for axis in self.axes:
             if reset:
                 axis.motor.config.pre_calibrated = False
                 axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
@@ -117,89 +126,103 @@ class ODrive:
         print('Calibration completed')
         self.printErrorStates()
     
-
-    def set_gains(self,axis_num,kpp = 10.0,kvp = 0.000005,kvi = 0.0001):
-        self.axis[axis_num].requested_state=AXIS_STATE_IDLE
-        self.axis[axis_num].controller.config.pos_gain = kpp
-        self.axis[axis_num].controller.config.vel_gain = kvp
-        self.axis[axis_num].controller.config.vel_integrator_gain = kvi
+    
+    def set_gains(self,ids,kpp = 10.0,kvp = 0.000005,kvi = 0.0001):
+        """
+        Set the odrive control constants
+        """
+        for id in ids:
+            self.axes[id].requested_state=AXIS_STATE_IDLE
+            self.axes[id].controller.config.pos_gain = kpp
+            self.axes[id].controller.config.vel_gain = kvp
+            self.axes[id].controller.config.vel_integrator_gain = kvi
         time.sleep(1)
 
     def reboot(self):
-        #Reboot and reconnect function
-        self.odrv.reboot()
+        """
+        Reboot and reconnect function
+        NOTE: untested 7/29/22
+        """
+        for drive in self.drives:
+            drive.reboot()
         time.sleep(5)
-        connect_all()
+        self.connect_all()
         print('Rebooted ')
 
     def erase_and_reboot(self):
-        #Erase the configuration of the system and reboots
+        """
+        Erase the configuration of the system and reboots
+        NOTE: untested 7/29/22
+        """
         print('erasing config')
-        self.odrv.erase_configuration()
-        print('reboot')
-        self.odrv.reboot()
+        for drive in self.drives:
+            drive.erase_configuration()
+        self.reboot()
 
 
     #--------------------------- CONTROL FUNCTIONS --------------------------
 
     # update or remove
     def trajMoveCnt(self, axis_num, posDesired = 10000, velDesired = 25000, accDesired = 50000):
-        #Move to a position with a specified trajectory
+        """
+        Move to a position with a specified trajectory
+        NOTE: untested 7/29/22
+        """
         
-        self.axis[axis_num].trap_traj.config.vel_limit = velDesired 
-        self.axis[axis_num].trap_traj.config.accel_limit = accDesired 
-        self.axis[axis_num].trap_traj.config.decel_limit = accDesired
-        self.axis[axis_num].controller.move_to_pos(posDesired)
+        self.axes[axis_num].trap_traj.config.vel_limit = velDesired 
+        self.axes[axis_num].trap_traj.config.accel_limit = accDesired 
+        self.axes[axis_num].trap_traj.config.decel_limit = accDesired
+        self.axes[axis_num].controller.move_to_pos(posDesired)
         
 
     def set_position(self, ids, positions):
         for id,position in zip(ids, positions):
-            self.axis[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
-            self.axis[id].controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
-            self.axis[id].controller.pos_setpoint=position
+            self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
+            self.axes[id].controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
+            self.axes[id].controller.pos_setpoint=position
 
     def set_velocity(self, ids, velocities):
         for id,velocity in zip(ids, velocities):
-            self.axis[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
-            self.axis[id].controller.config.control_mode=CTRL_MODE_VELOCITY_CONTROL
-            self.axis[id].controller.vel_setpoint = velocity
+            self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
+            self.axes[id].controller.config.control_mode=CTRL_MODE_VELOCITY_CONTROL
+            self.axes[id].controller.vel_setpoint = velocity
         
     def set_effort(self, ids, efforts):
         for id,effort in zip(ids, effort):
-            self.axis[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
-            self.axis[id].controller.config.control_mode=CTRL_MODE_TORQUE_CONTROL
-            self.axis[id].controller.torque_setpoint = effort
+            self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
+            self.axes[id].controller.config.control_mode=CTRL_MODE_TORQUE_CONTROL
+            self.axes[id].controller.torque_setpoint = effort
     
     #--------------------------- SENSOR FUNCTIONS --------------------------
     def get_encoder_count(self,num): # this should be removes
-        return self.axis[num].encoder
+        return self.axes[num].encoder
 
     def get_position(self):
-        return np.array([axis.encoder.pos_estimate for axis in self.axis])
+        return np.array([axis.encoder.pos_estimate for axis in self.axes])
     def get_velocity(self):
-        return np.array([axis.encoder.vel_estimate for axis in self.axis])
+        return np.array([axis.encoder.vel_estimate for axis in self.axes])
     def get_effort(self):
-        # return [axis.motor.current_control.Id_measured for axis in self.axis]
-        return np.array([axis.motor.current_control.Id_setpoint for axis in self.axis]) * Nm2A
+        # return [axis.motor.current_control.Id_measured for axis in self.axes]
+        return np.array([axis.motor.current_control.Id_setpoint for axis in self.axes]) * Nm2A
 
 
     #-------------------- ERROR CHECKING PRINT FUNCTIONS --------------------
     def print_controllers(self):
-        for i in self.axis:
+        for i in self.axes:
             print(i.controller)
 
     def print_encoders(self):
-        for i in self.axis:
+        for i in self.axes:
             print(i.encoder)
 
     def printErrorStates(self):
-        for i in self.axis:
+        for i in self.axes:
             print(' axis error:',hex(i.error))
             print(' motor error:',hex(i.motor.error))
             print(' encoder error:',hex(i.encoder.error))
 
     def printPos(self):
-        for i in self.axis:
+        for i in self.axes:
             print(' pos_estimate: ', i.encoder.pos_estimate)
             print(' count_in_cpr: ', i.encoder.count_in_cpr)
             print(' shadow_count: ', i.encoder.shadow_count)
