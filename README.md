@@ -10,8 +10,8 @@ The (optional for this device) realsense packages do not support raspbian, so be
 
     ```
     cd ~/catkin_ws/src
-    git clone https://github.com/dArbeloff/gantry_description
-    git clone https://github.com/dArbeloff/automated_hooking
+    git clone https://github.com/Darbeloff/gantry_description
+    git clone https://github.com/Darbeloff/automated_hooking
     cd ..
     catkin build
     ```
@@ -39,8 +39,8 @@ The (**required** for this device) realsense packages do not support raspbian, s
 
     ```
     cd ~/catkin_ws/src
-    git clone https://github.com/dArbeloff/gantry_description
-    git clone https://github.com/dArbeloff/automated_hooking
+    git clone https://github.com/Darbeloff/gantry_description
+    git clone https://github.com/Darbeloff/automated_hooking
     cd ..
     catkin build
     ```
