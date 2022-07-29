@@ -1,0 +1,8 @@
+<launch>
+    <node name='gantry_node' pkg='automated_hooking' type='py2_launch.sh' output='screen' args='gantry_node.py'/>
+    <node name='winch_node' pkg='automated_hooking' type='py3_launch.sh' output='screen' args='winch_node.py'/>
+    
+    <node name='tf_rerouter' pkg='automated_hooking' type='py2_launch.sh' args='tf_rerouter.py table_tag_observed table_tag map'/>
+    <!-- <node name='controller_node' pkg='automated_hooking' type='controller_node.py' output='screen'/> -->
+    <!-- <node name='hook_node' pkg='automated_hooking' type='hook_node.py' output='screen'/> -->
+</launch>

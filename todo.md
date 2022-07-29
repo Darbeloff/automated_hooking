@@ -1,10 +1,13 @@
 # TODO
 
+- Upload the env_loader.sh script to github somewhere
+- Figure out required odrive version and document it
 - fix gantry velocity control
 - combine controls and utils files (make python package?)
 - winch_node controls different winches in different modes
 - parametrize apriltag scanner from local files
 - refactor controls package to allow lambda input
+- auto-generate apriltag description based on target_description.urdf
 
 - ~~make or modify odrive class so controlling all odrives is easier~~
 - ~~OdriveClass gets amp-control mode, is placed in Util file~~
