@@ -2,9 +2,13 @@
 
 - fix lash on gantry crane y axis
 - read that stupid paper
-- Upload the env_loader.sh script to github somewhere
+- Upload the env_loader.sh script to gantry_control/scripts
   - Get torque's help designing a code dependency graph
 
+
+- flesh out gantry_control repo
+- remove all gantry_description dependencies
+- remove all redundant code from automated_hooking
 - combine controls and utils files (make python package?)
 - refactor controls package to allow lambda input
 - auto-generate apriltag description based on target_description.urdf
