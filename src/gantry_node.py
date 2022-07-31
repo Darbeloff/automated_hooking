@@ -64,34 +64,6 @@ class GantryNode:
         'bool3':3
     }
 
-
-    # Experimental data:
-    #     id (hex)  data_length
-    # ['1'   '0x1'   '8'] < double - control
-    # ['2'   '0x2'   '8'] < double - control
-    # [''    '0x4'   '4']
-    # ['16'  '0x10'  '3'] < bool3 - status
-    # ['17'  '0x11'  '8'] < double
-    # ['18'  '0x12'  '8'] < double
-    # ['19'  '0x13'  '8'] < double
-    # ['32'  '0x20'  '1'] < bool1 - status
-    # ['33'  '0x21'  '8'] < double
-    # ['257' '0x101' '4'] < int32
-    # ['258' '0x102' '4'] < int32
-    # ['259' '0x103' '4'] < int32
-    # ['260' '0x104' '4'] < int32
-    # ['261' '0x105' '4'] < int32
-    # ['273' '0x111' '4'] < int32
-    # ['274' '0x112' '4'] < int32
-    # ['275' '0x113' '4'] < int32
-    # ['276' '0x114' '4'] < int32
-    # ['277' '0x115' '4'] < int32
-    # ['290' '0x122' '4'] < int32
-    # ['291' '0x123' '4'] < int32
-    # ['292' '0x124' '4'] < int32
-    # ['293' '0x125' '4'] < int32
-    # message types: 22
-
     NAME_TABLE = {
         # rad/sec
         'control_x_speed': [0x01, 'double'], # YES
@@ -131,6 +103,7 @@ class GantryNode:
         # 'reset_encoder_1': [0x200, 'bool'],
         # 'reset_encoder_2': [0x300, 'bool'],
     }
+    
     ID_TABLE = {}
     CAN_STATE = {}
 

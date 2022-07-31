@@ -1,10 +1,21 @@
 # Automated Hooking
 Code and content for autonomously hooking horizontal pegs with a gantry crane. This project builds heavily on [previous research](https://github.com/Cormac0/Horizontal_Insertion). This code was built for ROS1 Melodic, so no promises about it working on other distros.
 
-For other useful bits of information I refer readers to [everything I know about the crane system](Everything_I_Know_About_The_Crane.md)
+For other useful bits of information I refer readers to [everything I know about the crane system](documentation/Everything_I_Know_About_The_Crane.md)
 
 ## Software Setup
-### 1 - Install code on Crane Computer.
+
+### 0 - Get Access to the Computers
+You'll need to be able to run commands on the system Computers. Technically plugging in a monitor and keyboard is a viable option, but ssh and vnc are much nicer.
+
+- Connect your laptop to the system LAN via any of the ethernet cables lying around. As long as it eventually makes its way back to the Console Box, you'll be connected.
+- Refer to [ros_and_simulink_control.pdf](documentation/ros_and_simulink_control.pdf) "Instruction of how to connect the VNC" for how to set up your network adapter. Unfortunately these instructions only apply to Windows; you may have to do some searching for equivalents on Linux and Mac.
+- Refer also to the table of ip's, usernames, and passwords in the same document. Relatedly, DO NOT publicize this repo.
+- You can now connect to the Computers in any of a couple ways.
+  - The easiest is to use VNC as described in the document (you can also use any other VNC app, such as [tightVNC](https://www.tightvnc.com/)). Note that this connection is nicely visual, but often slow and uncomfortable.
+  - You can also ssh into the Computer: `ssh [user]@[ip address]`. This method only gives you one terminal to use, but is fast and convenient. If you don't want to type in the password every time, you can add your laptop's ssh key to the remote machine. You can also use `tmux` to effectively get more terminals per ssh connection.
+  - If you use vscode, you can use remote explorer to open the remote Computer directly. This will allow you to navigate the filesystem graphically and use handy vscode editing tools. Any terminals opened in vscode (`` Ctrl+` ``, `` Ctrl+Shift+` ``) will open on the target Computer.
+### 1 - Install Code on Crane Computer.
 In our case this is the rockpi.
 The Crane Computer must support odrive 4.(something)
 The (optional for this device) realsense packages do not support raspbian, so be sure to use something beefier than a pi.
@@ -129,6 +140,6 @@ In our case this is the raspberry pi that lives next to the breaker. More genera
 
 ## Parts and Manufacture
 
-[Parts List](Parts_List.md)
+[Parts List](documentation/Parts_List.md)
 
 Manufacture is TODO.
