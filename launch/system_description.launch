@@ -4,6 +4,6 @@
         <include file='$(find automated_hooking)/launch/target_description.launch'/>
     </group>
     <group ns='gantry_description'>
-        <include file='$(find gantry_description)/launch/gantry_description.launch'/>
+        <include file='$(find gantry_control)/launch/gantry_description.launch'/>
     </group>
 </launch>

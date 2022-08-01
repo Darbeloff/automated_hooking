@@ -76,12 +76,9 @@ class LPController:
         state = np.array(state)
         target = np.array(target)
 
-        try:
-            if len(target) != len(state):
-                raise Exception("Controller requires target state length to match state length")
-        except:
-            # not iterable, everything is fine
-            pass
+        if np.shape(state) != np.shape(target):
+            # Size mismatch, controller can't do much with this
+            return target
 
         return state*(1. - delta_t / self.tau) + target*(delta_t / self.tau)
 

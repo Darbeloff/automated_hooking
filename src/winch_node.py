@@ -25,9 +25,9 @@ class WinchNode:
     
     COUNTS_PER_M = -5*400000 / 1.875
     M_PER_COUNT = 1./COUNTS_PER_M
-    # TODO: Allow saving offsets for re-zeroing
     
-    OFFSET = np.array([0.,0.,0.])
+    # TODO: Allow saving offsets for re-zeroing
+    OFFSET = np.zeros(3)
 
     POSITION_BOUNDS = (-1.7, 0.025)
     
@@ -65,17 +65,12 @@ class WinchNode:
             Vector3, self.set_pid_callback, queue_size=1)
 
     def init_state(self):
-        self.drive = ODrive('20673881304E', '2087377E3548')
-        print( self.drive.axis )
-        quit()        
+        self.driver = ODrive('20673881304E', '2087377E3548')
         
         # self.odrv0 = Odrive('20673881304E') # Only has 1 winch
         # self.odrv1 = Odrive('2087377E3548') # Has 2 winches
 
-        self.effort_filter = LPController(0.1)
-
-        # self.target_velocity = np.zeros(3) 
-        # self.target_position = None
+        self.effort_filter = LPController(0.5)
 
         self.position = [0,0,0]
         self.velocity = [0,0,0]
@@ -91,30 +86,26 @@ class WinchNode:
         delta_t = time - self.prev_time
         self.prev_time = time
 
-        self.position = self.drive.get_position()
-        self.velocity = self.drive.get_velocity()
-        self.effort_raw = self.drive.get_effort()
+        self.position = self.driver.get_position() * self.M_PER_COUNT + self.OFFSET
+        self.velocity = self.driver.get_velocity() * self.M_PER_COUNT
+        self.effort_raw = self.driver.get_effort()
 
         self.effort = self.effort_filter.do_control(self.effort, self.effort_raw, delta_t)
         # TODO: If too much current, do something. Disengage? Freeze?
 
-
         # SAFETY
         if not all(self.position == np.clip(self.position, *self.POSITION_BOUNDS)):
             # Winch has exceeded safety bounds
-            
+
             # Stop motion
             rospy.logwarn("STOPPED")
-            self.target_velocity = [0,0,0]
-            self.target_position = None
-            self.write_velocity()
-
+            self.driver.set_velocity_all( 0 )
+            rospy.logwarn(self.position)
+            rospy.logwarn(np.clip(self.position, *self.POSITION_BOUNDS))
             rospy.sleep(2)
 
             # Return to home
-            self.target_position = [-0.05,-0.05,-0.05]
-            self.write_position()
-
+            self.driver.set_position_all( -0.05 )
             rospy.sleep(2)
 
         self.publish_state()
@@ -129,19 +120,22 @@ class WinchNode:
         Set the target position, velocity, or effort of each winch
         """
         ids = [int(name) for name in msg.name]
-        
+
         if msg.velocity:
-            self.drive.set_velocity(ids, msg.velocity)
+            self.driver.set_velocity(ids, np.array(msg.velocity) * self.COUNTS_PER_M)
+            rospy.loginfo("Received Velocity: " + str(msg.velocity))
         elif msg.position:
-            self.drive.set_position(ids, msg.position)
+            self.driver.set_position(ids, np.array(msg.position) * self.COUNTS_PER_M)
+            rospy.loginfo("Received Position: " + str(msg.position))
         elif msg.effort:
-            self.drive.set_effort(ids, msg.effort)
+            self.driver.set_effort(ids, msg.effort)
+            rospy.logwarn("Received Effort: " + str(msg.effort))
 
 
     def set_pid_callback(self, msg):
-        self.drive.set_gains([0,1,2,3], *Vector.to_array(msg))
+        self.driver.set_gains(*Vector.to_array(msg))
 
-        rospy.loginfo(f"PID set to: {Kp}, {Kd}, {Ki}")
+        rospy.loginfo("PID set to: %f, %f, %f", *Vector.to_array(msg))
 
     def publish_state(self):
         """

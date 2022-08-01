@@ -10,7 +10,8 @@ from geometry_msgs.msg import TransformStamped
 
 
 import Utils
-from Utils import Vector, Coord
+from Utils import Vector
+from Coord import Coord
 
 class TFRerouter:
     """
@@ -34,6 +35,7 @@ class TFRerouter:
         
         rospy.sleep(1) # delay to allow topics to finish connecting
         rospy.logwarn(NODE_NAME + " is online")
+        # rospy.logwarn(NODE_NAME + " is remapping " + a + " to new frame " + a_prime + " in parent frame " + b)
         
         rate = rospy.Rate(self.RATE)
         while not rospy.is_shutdown():

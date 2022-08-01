@@ -11,7 +11,8 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose, PoseStamped, Twist, TransformStamped
 
 import Utils
-from Utils import Vector, Coord
+from Utils import Vector
+from Coord import Coord
 
 
 
@@ -92,12 +93,16 @@ class HookingController:
         # Get movement direction from table_tag
         rospy.sleep(0.1)
         
+        rospy.logwarn('resetting winch position')
+        self.control_winch_position(0, 0., wait=True)
+        rospy.sleep(0.5)
+        
         rospy.logwarn('moving!')
         while not rospy.is_shutdown():
             T_base = self.get_T('map', 'base_link')
             T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link') # TODO: add offset here, instead of in target description
 
-            if np.linalg.norm(T_diff.get_translation()[:2]) < 0.05:
+            if np.linalg.norm(T_diff.get_translation()[:2]) < 0.02:
                 break
             
             # where we want the base to be
@@ -107,34 +112,45 @@ class HookingController:
             # Await arrival in world space
             self.control_gantry_position(T_base_target)
 
-            rospy.sleep(0.1)
+            rospy.sleep(0.5)
+            # rospy.logwarn(self.winch_effort[0])
         
-        rospy.logwarn('Arrived!')
-        quit()
-
+        rospy.logwarn('Arrived! Moving winch')
+        rospy.sleep(0.5)
         # Lower hook appropriately
         # height = T_diff.get_translation()[2] - 0.1 # go 10cm below the target point
-        # self.control_winch_position(height,0, wait=True)
-        
+        height = -1.0 # go 10cm below the target point
+        self.control_winch_position(0, height, wait=True)
+        rospy.logwarn('Winch in position, moving gantry')
+
+        rospy.sleep(1.5)
 
         # Move in direction
         T_target = self.get_T('map', 'target_zone_1_link')
         move_direction = (T_target.T[:3,0]).flatten() # the x column of the rotation matrix
-        move_speed = 0.2 
+        move_speed = 0.15
         self.control_gantry_velocity( move_direction * move_speed )
         
-        rospy.sleep(1)
+        # rospy.sleep(5)
         # Await amperage trigger
-        # Utils.await_condition(
-        #     lambda: abs(self.winch_effort[0]) > 0.8,
-        #     timeout=20,
-        #     on_timeout=lambda: rospy.logwarn("Timed Out"))
+
+        # while not abs(self.winch_effort[0]) > 0.8:
+        #     print('\n')
+        #     print(abs(self.winch_effort[0]))
+            # print(abs(self.winch_effort[0]) > 5e-7)
+        Utils.await_condition(
+            lambda: abs(self.winch_effort[0]) > 0.065,
+            timeout=20,
+            sleep_time=0.001,
+            on_timeout=lambda: rospy.logwarn("Timed Out"))
 
         # Stop moving
         self.control_gantry_velocity([0,0,0])
 
         # Done
         rospy.logwarn("Done")
+
+        rospy.sleep(0.1)
 
     def do_hooking_V3(self):
         # map target links to winches in an un-tangle-y way

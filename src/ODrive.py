@@ -24,11 +24,6 @@ in2m = in2mm/1000
 
 Nm2A = 0.00000604
 
-#208637853548
-#2061377C3548
-
-#In this python script, there is skeleton code for how you may use the class at some point.
-#There will be additional updates to this driver to make it easier to use for you in the future.
 
 class ODrive:
     MAX_VEL = 100000
@@ -36,10 +31,14 @@ class ODrive:
 
     def __init__(self,*inputs):
         self.drives, self.axes = self.connect_all(inputs)
-        self.printErrorStates()
-
+        
+        # self.printErrorStates()
         # print("Setting gains to default")
-        self.set_gains(range(len(self.axes)))
+        self.set_gains()
+
+    # def __del__(self):
+    #     for axis in self.axes:
+    #         axis.requested_state = AXIS_STATE_IDLE
 
     def connect_all(self, serials):
         """
@@ -67,7 +66,9 @@ class ODrive:
             thread.join()
 
         axes = np.ravel([[d.axis0, d.axis1] for d in drives])
-        # TODO: remove axes that are not attached to motors
+        # remove axes that are not attached to motors
+        axes = [axis for axis in axes if not axis.motor.error]
+        
         
         return drives,axes
 
@@ -98,7 +99,7 @@ class ODrive:
             drive.config.brake_resistance = 0.5
             drive.save_configuration()
         
-        self.set_gains(range(len(self.axes)))
+        self.set_gains()
 
         for axis in self.axes:
             if reset:
@@ -127,15 +128,15 @@ class ODrive:
         self.printErrorStates()
     
     
-    def set_gains(self,ids,kpp = 10.0,kvp = 0.000005,kvi = 0.0001):
+    def set_gains(self,kpp = 10.0,kvp = 0.000005,kvi = 0.0001):
         """
         Set the odrive control constants
         """
-        for id in ids:
-            self.axes[id].requested_state=AXIS_STATE_IDLE
-            self.axes[id].controller.config.pos_gain = kpp
-            self.axes[id].controller.config.vel_gain = kvp
-            self.axes[id].controller.config.vel_integrator_gain = kvi
+        for axis in self.axes:
+            axis.requested_state=AXIS_STATE_IDLE
+            axis.controller.config.pos_gain = kpp
+            axis.controller.config.vel_gain = kvp
+            axis.controller.config.vel_integrator_gain = kvi
         time.sleep(1)
 
     def reboot(self):
@@ -174,27 +175,32 @@ class ODrive:
         self.axes[axis_num].trap_traj.config.decel_limit = accDesired
         self.axes[axis_num].controller.move_to_pos(posDesired)
         
-
+    def set_position_all(self, position):
+        self.set_position(range(len(self.axes)), [position]*len(self.axes))
     def set_position(self, ids, positions):
         for id,position in zip(ids, positions):
             self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
             self.axes[id].controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
             self.axes[id].controller.pos_setpoint=position
 
+    def set_velocity_all(self, velocity):
+        self.set_velocity(range(len(self.axes)), [velocity]*len(self.axes))
     def set_velocity(self, ids, velocities):
         for id,velocity in zip(ids, velocities):
             self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
             self.axes[id].controller.config.control_mode=CTRL_MODE_VELOCITY_CONTROL
             self.axes[id].controller.vel_setpoint = velocity
         
+    def set_effort_all(self, effort):
+        self.set_effort(range(len(self.axes)), [effort]*len(self.axes))
     def set_effort(self, ids, efforts):
-        for id,effort in zip(ids, effort):
+        for id,effort in zip(ids, efforts):
             self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
-            self.axes[id].controller.config.control_mode=CTRL_MODE_TORQUE_CONTROL
-            self.axes[id].controller.torque_setpoint = effort
+            self.axes[id].controller.config.control_mode=CTRL_MODE_CURRENT_CONTROL
+            self.axes[id].controller.current_setpoint = effort
     
     #--------------------------- SENSOR FUNCTIONS --------------------------
-    def get_encoder_count(self,num): # this should be removes
+    def get_encoder_count(self,num): # this should be removed
         return self.axes[num].encoder
 
     def get_position(self):
@@ -202,8 +208,8 @@ class ODrive:
     def get_velocity(self):
         return np.array([axis.encoder.vel_estimate for axis in self.axes])
     def get_effort(self):
-        # return [axis.motor.current_control.Id_measured for axis in self.axes]
-        return np.array([axis.motor.current_control.Id_setpoint for axis in self.axes]) * Nm2A
+        return [axis.motor.current_control.Id_measured for axis in self.axes]
+        # return np.array([axis.motor.current_control.Iq_setpoint for axis in self.axes]) * Nm2A
 
 
     #-------------------- ERROR CHECKING PRINT FUNCTIONS --------------------

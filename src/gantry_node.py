@@ -16,8 +16,9 @@ from nav_msgs.msg import Odometry
 import tf2_ros
 
 from Controls import PIDController, LPController
-from Utils import Vector, Coord, LogFile
+from Utils import Vector, LogFile
 import Utils
+from Coord import Coord
 
 class numhex64(ctypes.Union):
     _fields_ = [("num", ctypes.c_double),
@@ -164,7 +165,7 @@ class GantryNode:
             self.CAN_STATE[key] = None
         
         
-        self.velocity_controller = LPController(0.1)
+        self.velocity_controller = LPController(0.08)
         self.position_controller = PIDController(1.,0.,0., integrator_bounds=(-0.15,0.15))
 
         self.target_velocity = [0,0]

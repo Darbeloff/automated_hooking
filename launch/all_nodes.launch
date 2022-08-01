@@ -3,7 +3,7 @@
     <include file='$(find automated_hooking)/launch/system_description.launch'/>
     
     <!-- Local Nodes -->
-    <include file='$(find automated_hookinh)/launch/crane.launch' />
+    <include file='$(find automated_hooking)/launch/crane.launch' />
 
     <!-- Jetson Nodes -->
     <include file='$(find automated_hooking)/launch/camera.launch'/>
