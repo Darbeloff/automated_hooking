@@ -11,7 +11,7 @@ from geometry_msgs.msg import Pose, Twist, Vector3
 from sensor_msgs.msg import JointState
 from nav_msgs.msg import Odometry
 
-from OdriveClass import Odrive
+# from OdriveClass import Odrive
 from ODrive import ODrive
 from Controls import PIDController, LPController
 from Utils import Vector
@@ -89,8 +89,8 @@ class WinchNode:
         self.effort_raw = self.driver.get_effort()
 
         self.effort = self.effort_filter.do_control(self.effort, self.effort_raw, delta_t)
-        # TODO: If too much current, do something. Disengage? Freeze?
 
+        # TODO: If too much current, set idle.
         # SAFETY
         if not all(self.position == np.clip(self.position, *self.POSITION_BOUNDS)):
             # Winch has exceeded safety bounds
