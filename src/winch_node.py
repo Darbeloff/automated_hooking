@@ -67,6 +67,14 @@ class WinchNode:
     def init_state(self):
         self.driver = ODrive('20673881304E', '2087377E3548')
         
+        self.driver.printErrorStates()
+        # self.driver.startup_init()
+        self.driver.full_init()
+        self.driver.printErrorStates()
+        self.driver.axes = self.driver.axes[[0,2,3]]
+
+        # quit()
+        # self.driver.full_int()
         # self.odrv0 = Odrive('20673881304E') # Only has 1 winch
         # self.odrv1 = Odrive('2087377E3548') # Has 2 winches
 

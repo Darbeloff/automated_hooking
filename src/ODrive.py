@@ -67,7 +67,7 @@ class ODrive:
 
         axes = np.ravel([[d.axis0, d.axis1] for d in drives])
         # remove axes that are not attached to motors
-        axes = [axis for axis in axes if not axis.motor.error]
+        # axes = [axis for axis in axes if not axis.motor.error]
         
         
         return drives,axes
@@ -79,18 +79,39 @@ class ODrive:
         NOTE: untested 7/29/22
         """
         print('Initializing encoder calibration sequence')
-        for axis in self.axes:
-            axis.requested_state = AXIS_STATE_IDLE
-            time.sleep(1)
-            axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
-            time.sleep(10)
-            axis.requested_state = AXIS_STATE_ENCODER_OFFSET_CALIBRATION
-            time.sleep(10)
-            axis.requested_state = AXIS_STATE_IDLE
-            time.sleep(1)
-            self.initflag=1
+        def _calibrate(axis):
+            def _thread():
+                axis.requested_state = AXIS_STATE_IDLE
+                time.sleep(1)
+                axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
+                time.sleep(10)
+                axis.requested_state = AXIS_STATE_ENCODER_OFFSET_CALIBRATION
+                time.sleep(10)
+                axis.requested_state = AXIS_STATE_IDLE
+                time.sleep(1)
 
-    def full_init(self,reset = True):
+            return _thread
+
+        # for axis in self.axes:
+        #     axis.requested_state = AXIS_STATE_IDLE
+        #     time.sleep(1)
+        #     axis.requested_state = AXIS_STATE_ENCODER_INDEX_SEARCH
+        #     time.sleep(10)
+        #     axis.requested_state = AXIS_STATE_ENCODER_OFFSET_CALIBRATION
+        #     time.sleep(10)
+        #     axis.requested_state = AXIS_STATE_IDLE
+        #     time.sleep(1)
+        threads = [Thread(target=_calibrate(axis)) for axis in self.axes]
+        for thread in threads:
+            thread.start()
+        
+        # wait for all to complete
+        for thread in threads:
+            thread.join()
+        
+        self.initflag=1
+
+    def full_init(self, reset=True):
         """
         Do calibration, set various control constants and save the configuration
         NOTE: untested 7/29/22
@@ -101,11 +122,10 @@ class ODrive:
         
         self.set_gains()
 
-        for axis in self.axes:
-            if reset:
+        def _calibrate(axis):
+            def _thread():
+                # if reset:
                 axis.motor.config.pre_calibrated = False
-                axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-                time.sleep(10)
 
                 axis.motor.config.pole_pairs = 4
                 axis.controller.config.vel_limit = 200000 
@@ -114,18 +134,32 @@ class ODrive:
                 axis.encoder.config.cpr = 4000
                 axis.encoder.config.use_index = True
                 axis.encoder.config.zero_count_on_find_idx = True
-                axis.encoder.config.pre_calibrated = False
-
+                
+                
                 #motor calibration current
                 axis.motor.config.calibration_current = 4
                 axis.motor.config.resistance_calib_max_voltage = 12
 
-            axis.motor.config.pre_calibrated=True
-            axis.config.startup_encoder_index_search = True
-            axis.config.startup_encoder_offset_calibration = True
 
+                axis.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+                time.sleep(5)
+                
+                # axis.motor.config.pre_calibrated=True
+                # axis.config.startup_encoder_index_search = True
+                # axis.config.startup_encoder_offset_calibration = True
+
+            return _thread
+
+        threads = [Thread(target=_calibrate(axis)) for axis in self.axes]
+        for thread in threads:
+            thread.start()
+            time.sleep(1)
+        
+        # wait for all to complete
+        for thread in threads:
+            thread.join()
+        
         print('Calibration completed')
-        self.printErrorStates()
     
     
     def set_gains(self,kpp = 10.0,kvp = 0.000005,kvi = 0.0001):
@@ -181,6 +215,7 @@ class ODrive:
         for id,position in zip(ids, positions):
             self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
             self.axes[id].controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
+            # odrv0.axis0.controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
             self.axes[id].controller.pos_setpoint=position
 
     def set_velocity_all(self, velocity):
