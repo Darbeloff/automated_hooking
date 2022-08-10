@@ -36,7 +36,7 @@ class ODrive:
         # print("Setting gains to default")
         self.set_gains()
 
-        self.driver.full_init()
+        self.full_init()
 
     def connect_all(self, serials):
         """
@@ -148,7 +148,7 @@ class ODrive:
         threads = [Thread(target=_calibrate(axis)) for axis in self.axes]
         for thread in threads:
             thread.start()
-            time.sleep(1)
+            time.sleep(2)
         
         # wait for all to complete
         for thread in threads:
