@@ -36,9 +36,7 @@ class ODrive:
         # print("Setting gains to default")
         self.set_gains()
 
-    # def __del__(self):
-    #     for axis in self.axes:
-    #         axis.requested_state = AXIS_STATE_IDLE
+        self.driver.full_init()
 
     def connect_all(self, serials):
         """
@@ -67,8 +65,7 @@ class ODrive:
 
         axes = np.ravel([[d.axis0, d.axis1] for d in drives])
         # remove axes that are not attached to motors
-        # axes = [axis for axis in axes if not axis.motor.error]
-        
+        axes = [axis for axis in axes if not axis.motor.error]
         
         return drives,axes
 
@@ -114,13 +111,11 @@ class ODrive:
     def full_init(self, reset=True):
         """
         Do calibration, set various control constants and save the configuration
-        NOTE: untested 7/29/22
         """
+
         for drive in self.drives:
             drive.config.brake_resistance = 0.5
             drive.save_configuration()
-        
-        self.set_gains()
 
         def _calibrate(axis):
             def _thread():
