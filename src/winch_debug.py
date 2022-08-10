@@ -39,15 +39,15 @@ rospy.sleep(0.5)
 # rospy.sleep(1.5)
 
 msg = JointState()
-msg.name = ['0','1','2']
-msg.velocity = [-0.2, -0.2, -0.2]
+msg.name = ['0']
+msg.effort = [-0.4]
 pub.publish(msg)
 
-rospy.sleep(1)
+# rospy.sleep(1)
 
 # msg.velocity = [0.2, 0.2, 0.2]
-msg.velocity = []
-msg.position = [-0.1, -0.1, -0.1]
+# msg.velocity = []
+# msg.position = [-0.1, -0.1, -0.1]
 # msg.name = ['2']
 # msg.velocity = [-0.2]
 # msg.position = [0.]
@@ -55,5 +55,5 @@ msg.position = [-0.1, -0.1, -0.1]
 # 2.804 kg
 # F = m*g = 2.804*9.81
 
-pub.publish(msg)
-quit()
+# pub.publish(msg)
+# quit()

@@ -130,22 +130,20 @@ class HookingController:
         move_direction = (T_target.T[:3,0]).flatten() # the x column of the rotation matrix
         move_speed = 0.15
         self.control_gantry_velocity( move_direction * move_speed )
-        
-        # rospy.sleep(5)
-        # Await amperage trigger
+        rospy.sleep(2)
 
-        # while not abs(self.winch_effort[0]) > 0.8:
-        #     print('\n')
-        #     print(abs(self.winch_effort[0]))
-            # print(abs(self.winch_effort[0]) > 5e-7)
+        # Await amperage trigger
         Utils.await_condition(
             lambda: abs(self.winch_effort[0]) > 0.065,
-            timeout=20,
+            timeout=2,
             sleep_time=0.001,
             on_timeout=lambda: rospy.logwarn("Timed Out"))
 
         # Stop moving
-        self.control_gantry_velocity([0,0,0])
+        self.control_gantry_velocity([0,0])
+
+        # Set Winch Current Control
+        self.control_winch_current(0, 0.065, wait=True)
 
         # Done
         rospy.logwarn("Done")
@@ -229,6 +227,23 @@ class HookingController:
         if wait:
             Utils.await_condition(
                 lambda: np.linalg.norm(self.winch_position[winches] - position) < error,
+                timeout=timeout)
+    
+    def control_winch_current(self, winches, current, wait=False, error=0.05, timeout=60):
+        """
+        Move the winches to target positions. Option to wait until these winches arrive at said locations
+        """
+        winches = np.ravel(winches) # cast to 1D array
+        current = np.ravel(current)
+
+        msg = JointState()
+        msg.name = [str(winch) for winch in winches]
+        msg.current = current
+        self.winch_control_pub.publish(msg)
+
+        if wait:
+            Utils.await_condition(
+                lambda: np.linalg.norm(self.winch_effort[winches] - current) < error,
                 timeout=timeout)
 
     

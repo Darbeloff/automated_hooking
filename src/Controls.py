@@ -9,7 +9,7 @@ class PIDController:
     high-frequency noise from taking over the controller
     """
     def __init__(self, Kp, Ki, Kd, tau=0.1, integrator_bounds=(-20, 20), coupled=False):
-        """Accept and initialize parameters. Save current time
+        """Accept and initialize parameters.
         Args:
             Kp, Ki, Kd: coefficients for PID control
             alpha: controls the low-pass filter. Increase to allow higher frequencies through. Restrict to (0, 1]
@@ -55,7 +55,7 @@ class PIDController:
 
         # Second Stage: Lag Compensator (integrator)
         self.lag_i += p_out*delta_t*self.Ki
-        self.lag_i = np.clip(self.lag_i, self.integrator_bounds[0], self.integrator_bounds[1])
+        self.lag_i = np.clip(self.lag_i, *self.integrator_bounds)
         lag_out = p_out + self.lag_i
 
         
