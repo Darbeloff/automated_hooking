@@ -23,12 +23,28 @@
         <origin xyz='0 0 0' rpy='0 0 0'/>
     </joint>
 
+    <link name='target_zone_0_link'/>
+
+    <joint name='target_zone_0_joint' type='fixed'>
+        <parent link='target_link'/>
+        <child link='target_zone_0_link' />
+        <origin xyz='0.25 -0.2 0' rpy='0 0 ${pi/2}'/>
+    </joint>
+
     <link name='target_zone_1_link'/>
 
     <joint name='target_zone_1_joint' type='fixed'>
         <parent link='target_link'/>
         <child link='target_zone_1_link' />
-        <origin xyz='0.25 -0.2 0' rpy='0 0 ${pi/2}'/>
+        <origin xyz='-0.25 -0.2 0' rpy='0 0 ${pi/2}'/>
+    </joint>
+
+    <link name='target_zone_2_link'/>
+
+    <joint name='target_zone_2_joint' type='fixed'>
+        <parent link='target_link'/>
+        <child link='target_zone_2_link' />
+        <origin xyz='-0.25 -0.2 0' rpy='0 0 ${-pi/2}'/>
     </joint>
 
 
