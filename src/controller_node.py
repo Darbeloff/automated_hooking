@@ -87,20 +87,20 @@ class HookingController:
 
         rospy.logwarn("end")
 
-    def do_hooking_V2(self):
+    def do_hooking_V2(self, winch=0, target=0):
         # Get position of table_tag in world space
         # Get position of target position in world space
         # Get movement direction from table_tag
         rospy.sleep(0.1)
         
         rospy.logwarn('resetting winch position')
-        self.control_winch_position(0, 0., wait=True)
+        self.control_winch_position(winch, 0., wait=True)
         rospy.sleep(0.5)
         
         rospy.logwarn('moving!')
         while not rospy.is_shutdown():
             T_base = self.get_T('map', 'base_link')
-            T_diff = self.get_T('pulley_arm_1_pulley_link', 'target_zone_1_link') # TODO: add offset here, instead of in target description
+            T_diff = self.get_T('pulley_arm_{winch}_pulley_link', 'target_zone_{target}_link') # TODO: add offset here, instead of in target description
 
             if np.linalg.norm(T_diff.get_translation()[:2]) < 0.02:
                 break
