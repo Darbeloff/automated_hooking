@@ -134,7 +134,7 @@ In our case this is the raspberry pi that lives next to the breaker. More genera
 
 - Start all remaining nodes on the Crane Computer
 
-    `rockpi> roslaunch crane.launch`
+    `rockpi> roslaunch automated_hooking crane.launch`
 
 
 
