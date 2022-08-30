@@ -30,7 +30,7 @@ class Coord:
             if len(orientation) == 4:
                 M = tf_t.quaternion_matrix( orientation )
             else:
-                M = tf_t.euler_matrix( orientation[0], orientation[1], orientation[2], 'rxyz' )
+                M = tf_t.euler_matrix( orientation[0], orientation[1], orientation[2], 'rzyx' )
             
             self.T = P.dot(M)
             
