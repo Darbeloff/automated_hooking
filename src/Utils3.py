@@ -114,13 +114,3 @@ def await_condition(condition, timeout=60, on_condition=lambda: 0, on_timeout=la
         rospy.sleep(sleep_time)
 
     on_timeout()
-
-
-# q = tf_t.quaternion_from_euler(1,2,3,'ryxz')
-# t = [0,0,0]
-
-
-# coord = Coord(t,q)
-# print(coord)
-# print(q)
-# print(coord.to_tf().rotation)

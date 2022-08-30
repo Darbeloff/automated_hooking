@@ -210,7 +210,6 @@ class ODrive:
         for id,position in zip(ids, positions):
             self.axes[id].requested_state=AXIS_STATE_CLOSED_LOOP_CONTROL
             self.axes[id].controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
-            # odrv0.axis0.controller.config.control_mode=CTRL_MODE_POSITION_CONTROL
             self.axes[id].controller.pos_setpoint=position
 
     def set_velocity_all(self, velocity):
