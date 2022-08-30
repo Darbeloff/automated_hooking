@@ -14,7 +14,7 @@ You'll need to be able to run commands on the system Computers. Technically plug
 - You can now connect to the Computers in any of a couple ways.
   - The easiest is to use VNC as described in the document (you can also use any other VNC app, such as [tightVNC](https://www.tightvnc.com/)). Note that this connection is nicely visual, but often slow and uncomfortable.
   - You can also ssh into the Computer: `ssh [user]@[ip address]`. This method only gives you one terminal to use, but is fast and convenient. If you don't want to type in the password every time, you can add your laptop's ssh key to the remote machine. You can also use `tmux` to effectively get more terminals per ssh connection.
-  - If you use vscode, you can use remote explorer to open the remote Computer directly. This will allow you to navigate the filesystem graphically and use handy vscode editing tools. Any terminals opened in vscode (`` Ctrl+` ``, `` Ctrl+Shift+` ``) will open on the target Computer.
+  - If you use vscode, you can use remote explorer to open the remote Computer. This will allow you to navigate the filesystem graphically and use handy vscode editing tools. Any terminals opened in vscode (`` Ctrl+` ``, `` Ctrl+Shift+` ``) will open on the target Computer.
 ### 1 - Install Code on Crane Computer.
 In our case this is the rockpi.
 The Crane Computer must support odrive 4.(something)
@@ -78,21 +78,19 @@ The (**required** for this device) realsense packages do not support raspbian, s
 
 
 ### 3 - Allow Crane Computer to roslaunch remotely onto the Vision Computer
-This step is techinically unnecessary, but it allows running the code with fewer ssh sessions and makes me feel nice.
+This step is technically unnecessary, but it allows running the code with fewer ssh sessions and makes me feel nice.
 
 - Add the Crane Computer's ssh key to the Vision Computer's `authorized_hosts` file
+  - Find the Crane Computer's ssh key: `rockpi> cat ~/.ssh/id_*.pub`
+  - Copy it into the Vision Computer's `authorized_hosts` file at: `jetson> nano ~/.ssh/authorized_hosts`
 
-    Find the Crane Computer's ssh key: `rockpi> cat ~/.ssh/id_*.pub`
-    
-    Copy it into the jetson's authorized_hosts file at: `jetson> nano ~/.ssh/authorized_hosts`
-
-- Add the Vision Computer to the Crane Computer's known_hosts file
+- Add the Vision Computer to the Crane Computer's `known_hosts` file
 
     `rockpi> ssh -oHostKeyAlgorithms='ssh-rsa' {user}@{vision_computer_ip}`
 
-    This should ssh you onto the Vision Computer without prompting you for a password. the `-oHostKeyAlgorithms` is required because roslaunch only accepts certain types of keys in the known_hosts file; if roslaunching remotely is failing, try deleting known_hosts and trying this part again.
+    This should ssh you onto the Vision Computer without prompting you for a password. the `-oHostKeyAlgorithms` is required because roslaunch only accepts certain types of keys in the `known_hosts` file; if roslaunching remotely is failing, try deleting `known_hosts` and trying this part again.
 
-- Ensure the `~/catkin_ws/env_loader.sh` file exists on the Vision Computer. This should already exists, unless someone has destroyed it. This file must define all environment variables (ROS_MASTER_URI, ROS_IP specifically) and source any ros workspace files.
+- Ensure the `~/catkin_ws/env_loader.sh` file exists on the Vision Computer. This should already exist, unless someone has destroyed it. This file must define all environment variables (ROS_MASTER_URI, ROS_IP specifically) and source any ros workspace files.
 
 ### Notes:
 - As usual, all computers in this system must agree about who is the ROS master; make sure that all computers have the same device set as their ROS_MASTER_URI, and that all have their own ip set as the ROS_IP environment variable. This must also be true in any `env_loader.sh` files.

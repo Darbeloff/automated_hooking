@@ -4,7 +4,6 @@
 
 
 ## Utility Files
-
 ### Coord
 
 This file defines a Coord class to represent translations/orientations in the homogeneous coordinate format. It can be constructed from a homogeneous coordinate matrix directly, from translation and orientation vectors, from a Transform ROS message, or from any ROS message with a translation/position and rotation/orientation defined.
