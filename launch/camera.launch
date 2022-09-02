@@ -15,5 +15,5 @@
         </include>
     </group>
 
-    <node name='tf_rerouter' pkg='automated_hooking' type='py2_launch.sh' args='tf_rerouter.py table_tag_observed table_tag map'/>
+    <node name='tf_rerouter' pkg='gantry_control' type='py2_launch.sh' args='tf_rerouter.py table_tag_observed table_tag map'/>
 </launch>

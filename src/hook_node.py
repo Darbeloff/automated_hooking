@@ -47,6 +47,7 @@ class HookNode:
         msg = Imu()
         msg.header.stamp = rospy.get_rostime()
 
+        # TODO: use Vector class, ensure order is correct
         q = self.bridge.state['quaternion']
         msg.quaternion.x = q[0]
         msg.quaternion.y = q[1]

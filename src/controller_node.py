@@ -10,10 +10,8 @@ import tf2_ros
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose, PoseStamped, Twist, TransformStamped
 
-import Utils
-from Utils import Vector
-from Coord import Coord
-
+import ros_utils as Utils
+from ros_utils import Vector, Coord
 
 
 class HookingController:
