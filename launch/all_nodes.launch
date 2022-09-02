@@ -3,8 +3,11 @@
     <include file='$(find automated_hooking)/launch/system_description.launch'/>
     
     <!-- Local Nodes -->
-    <include file='$(find automated_hooking)/launch/crane.launch' />
+    <include file='$(find gantry_control)/launch/crane.launch' />
 
     <!-- Jetson Nodes -->
-    <include file='$(find automated_hooking)/launch/camera.launch'/>
+    <include file='$(find gantry_control)/launch/camera.launch'/>
+    <!-- Jetson Nodes -->
+    <!-- TODO: rename to april_tag_group -->
+    <include file='$(find automated_hookinh)/launch/camera.launch'/>
 </launch>
